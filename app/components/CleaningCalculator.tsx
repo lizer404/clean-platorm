@@ -1,85 +1,64 @@
 "use client";
 
-import { useMemo, useState, type ReactNode } from "react";
-import RoomIllustration from "./RoomIllustration";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 type CleaningType = "maintenance" | "general" | "afterRepair";
-type RoomCount = 1 | 2 | 3;
-type BathCount = 1 | 2 | 3;
-type PaymentMethod = "online" | "cash" | "card";
 type ExtraId =
+  | "fridge"
+  | "oven"
+  | "microwave"
   | "ironing"
   | "dishes"
   | "balcony"
   | "windows"
-  | "oven"
-  | "fridge"
   | "keys";
 
-const CLEANING_OPTIONS: {
-  id: CleaningType;
-  label: string;
-  hint: string;
-  base: number;
-}[] = [
-  {
-    id: "maintenance",
-    label: "Поддерживающая",
-    hint: "Регулярная чистота",
-    base: 3500,
-  },
-  {
-    id: "general",
-    label: "Генеральная",
-    hint: "Глубокая уборка",
-    base: 5500,
-  },
-  {
-    id: "afterRepair",
-    label: "После ремонта",
-    hint: "От пыли и следов",
-    base: 8500,
-  },
+const CLEANING_OPTIONS: { id: CleaningType; label: string; base: number }[] = [
+  { id: "maintenance", label: "Поддерживающая", base: 45 },
+  { id: "general", label: "Генеральная", base: 75 },
+  { id: "afterRepair", label: "После ремонта", base: 110 },
 ];
 
-const ROOM_OPTIONS: { value: RoomCount; label: string; caption: string }[] = [
-  { value: 1, label: "1", caption: "комн." },
-  { value: 2, label: "2", caption: "комн." },
-  { value: 3, label: "3+", caption: "комн." },
-];
-
-const BATH_OPTIONS: { value: BathCount; label: string }[] = [
-  { value: 1, label: "1" },
-  { value: 2, label: "2" },
-  { value: 3, label: "3+" },
-];
-
-const ROOM_ADDON: Record<RoomCount, number> = {
-  1: 0,
-  2: 1500,
-  3: 3000,
-};
-
-const BATH_ADDON: Record<BathCount, number> = {
-  1: 0,
-  2: 800,
-  3: 1600,
-};
-
-const iconClass = "h-7 w-7";
-
-const EXTRAS: {
-  id: ExtraId;
-  label: string;
-  price: number;
-  icon: ReactNode;
-}[] = [
+const EXTRAS: { id: ExtraId; label: string; price: number; icon: ReactNode }[] = [
+  {
+    id: "fridge",
+    label: "Холодильник",
+    price: 15,
+    icon: (
+      <svg viewBox="0 0 24 24" className="h-7 w-7" fill="none" stroke="currentColor" strokeWidth="1.6">
+        <rect x="6" y="3" width="12" height="18" rx="2" />
+        <path d="M6 11h12M9 7v2M9 14v2" strokeLinecap="round" />
+      </svg>
+    ),
+  },
+  {
+    id: "oven",
+    label: "Духовка",
+    price: 12,
+    icon: (
+      <svg viewBox="0 0 24 24" className="h-7 w-7" fill="none" stroke="currentColor" strokeWidth="1.6">
+        <rect x="3" y="5" width="18" height="14" rx="2" />
+        <path d="M7 9h10v6H7z" />
+      </svg>
+    ),
+  },
+  {
+    id: "microwave",
+    label: "Микроволновка",
+    price: 8,
+    icon: (
+      <svg viewBox="0 0 24 24" className="h-7 w-7" fill="none" stroke="currentColor" strokeWidth="1.6">
+        <rect x="2" y="6" width="20" height="12" rx="2" />
+        <path d="M6 10h8v4H6zM18 10v.01M18 14v.01" strokeLinecap="round" />
+      </svg>
+    ),
+  },
   {
     id: "ironing",
     label: "Глажка одежды",
-    price: 800,
+    price: 18,
     icon: (
-      <svg viewBox="0 0 24 24" className={iconClass} fill="none" stroke="currentColor" strokeWidth="1.7">
+      <svg viewBox="0 0 24 24" className="h-7 w-7" fill="none" stroke="currentColor" strokeWidth="1.6">
         <path d="M4 18h14a2 2 0 0 0 2-2v-1a6 6 0 0 0-6-6H8L4 13v5Z" strokeLinecap="round" strokeLinejoin="round" />
         <path d="M8 9V6a2 2 0 0 1 2-2h2" strokeLinecap="round" />
       </svg>
@@ -88,9 +67,9 @@ const EXTRAS: {
   {
     id: "dishes",
     label: "Помыть посуду",
-    price: 400,
+    price: 10,
     icon: (
-      <svg viewBox="0 0 24 24" className={iconClass} fill="none" stroke="currentColor" strokeWidth="1.7">
+      <svg viewBox="0 0 24 24" className="h-7 w-7" fill="none" stroke="currentColor" strokeWidth="1.6">
         <path d="M4 10h16v2a8 8 0 0 1-16 0v-2Z" strokeLinecap="round" strokeLinejoin="round" />
         <path d="M8 10V7m8 3V8" strokeLinecap="round" />
       </svg>
@@ -99,9 +78,9 @@ const EXTRAS: {
   {
     id: "balcony",
     label: "Уборка балкона",
-    price: 600,
+    price: 14,
     icon: (
-      <svg viewBox="0 0 24 24" className={iconClass} fill="none" stroke="currentColor" strokeWidth="1.7">
+      <svg viewBox="0 0 24 24" className="h-7 w-7" fill="none" stroke="currentColor" strokeWidth="1.6">
         <path d="M4 20V10l8-6 8 6v10" strokeLinecap="round" strokeLinejoin="round" />
         <path d="M9 20v-6h6v6" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
@@ -110,43 +89,20 @@ const EXTRAS: {
   {
     id: "windows",
     label: "Помыть окна",
-    price: 1200,
+    price: 20,
     icon: (
-      <svg viewBox="0 0 24 24" className={iconClass} fill="none" stroke="currentColor" strokeWidth="1.7">
+      <svg viewBox="0 0 24 24" className="h-7 w-7" fill="none" stroke="currentColor" strokeWidth="1.6">
         <rect x="4" y="4" width="16" height="16" rx="2" />
         <path d="M12 4v16M4 12h16" strokeLinecap="round" />
       </svg>
     ),
   },
   {
-    id: "oven",
-    label: "СВЧ / Духовка",
-    price: 500,
-    icon: (
-      <svg viewBox="0 0 24 24" className={iconClass} fill="none" stroke="currentColor" strokeWidth="1.7">
-        <rect x="3" y="5" width="18" height="14" rx="2" />
-        <path d="M7 9h10v6H7z" />
-        <circle cx="17" cy="8" r="0.8" fill="currentColor" stroke="none" />
-      </svg>
-    ),
-  },
-  {
-    id: "fridge",
-    label: "Мойка холодильника",
-    price: 700,
-    icon: (
-      <svg viewBox="0 0 24 24" className={iconClass} fill="none" stroke="currentColor" strokeWidth="1.7">
-        <rect x="6" y="3" width="12" height="18" rx="2" />
-        <path d="M6 11h12M9 7v2M9 14v2" strokeLinecap="round" />
-      </svg>
-    ),
-  },
-  {
     id: "keys",
     label: "Доставка ключей",
-    price: 350,
+    price: 7,
     icon: (
-      <svg viewBox="0 0 24 24" className={iconClass} fill="none" stroke="currentColor" strokeWidth="1.7">
+      <svg viewBox="0 0 24 24" className="h-7 w-7" fill="none" stroke="currentColor" strokeWidth="1.6">
         <circle cx="8" cy="14" r="3.5" />
         <path d="M11 12.5 20 4m-4 0h4v4" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
@@ -154,33 +110,133 @@ const EXTRAS: {
   },
 ];
 
-const PAYMENT_OPTIONS: { id: PaymentMethod; label: string; note: string }[] = [
-  { id: "online", label: "Онлайн", note: "−5%" },
-  { id: "cash", label: "Наличными", note: "" },
-  { id: "card", label: "Картой", note: "" },
-];
+const AREA_MIN = 20;
+const AREA_MAX = 200;
+const AREA_BASE = 40;
 
 function formatPrice(value: number) {
-  return new Intl.NumberFormat("ru-RU").format(Math.round(value)) + " ₽";
+  return new Intl.NumberFormat("ru-RU", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(Math.round(value));
+}
+
+function ChevronDown({ open }: { open?: boolean }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className={`h-5 w-5 text-muted transition-transform duration-200 ${open ? "rotate-180" : ""}`}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+    >
+      <path d="m6 9 6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function ChevronRight({ open }: { open?: boolean }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className={`h-5 w-5 text-muted transition-transform duration-200 ${open ? "rotate-90" : ""}`}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+    >
+      <path d="m9 6 6 6-6 6" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function StepperButton({
+  label,
+  onClick,
+  disabled,
+}: {
+  label: string;
+  onClick: () => void;
+  disabled?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      disabled={disabled}
+      onClick={onClick}
+      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-xl font-medium text-foreground shadow-sm transition active:scale-95 disabled:opacity-35"
+    >
+      {label === "minus" ? "−" : "+"}
+    </button>
+  );
 }
 
 export default function CleaningCalculator() {
   const [cleaningType, setCleaningType] = useState<CleaningType>("maintenance");
-  const [rooms, setRooms] = useState<RoomCount>(1);
-  const [baths, setBaths] = useState<BathCount>(1);
+  const [rooms, setRooms] = useState(1);
+  const [baths, setBaths] = useState(1);
+  const [area, setArea] = useState(AREA_BASE);
+  const [areaInput, setAreaInput] = useState(String(AREA_BASE));
   const [extras, setExtras] = useState<Set<ExtraId>>(new Set());
-  const [payment, setPayment] = useState<PaymentMethod>("online");
+  const [typeOpen, setTypeOpen] = useState(false);
+  const [extrasOpen, setExtrasOpen] = useState(false);
   const [ordered, setOrdered] = useState(false);
 
+  const typeRef = useRef<HTMLDivElement>(null);
+
+  const selectedType = CLEANING_OPTIONS.find((item) => item.id === cleaningType)!;
+
+  const selectedExtras = EXTRAS.filter((item) => extras.has(item.id));
+
   const total = useMemo(() => {
-    const base = CLEANING_OPTIONS.find((item) => item.id === cleaningType)?.base ?? 0;
+    const base = selectedType.base;
+    const roomFee = (rooms - 1) * 12;
+    const bathFee = (baths - 1) * 8;
+    const areaFee = Math.max(0, area - AREA_BASE) * 0.9;
     const extrasSum = EXTRAS.filter((item) => extras.has(item.id)).reduce(
       (sum, item) => sum + item.price,
       0,
     );
-    const subtotal = base + ROOM_ADDON[rooms] + BATH_ADDON[baths] + extrasSum;
-    return payment === "online" ? subtotal * 0.95 : subtotal;
-  }, [baths, cleaningType, extras, payment, rooms]);
+    return base + roomFee + bathFee + areaFee + extrasSum;
+  }, [area, baths, extras, rooms, selectedType.base]);
+
+  const areaProgress = ((area - AREA_MIN) / (AREA_MAX - AREA_MIN)) * 100;
+
+  useEffect(() => {
+    function onDocClick(event: MouseEvent) {
+      if (!typeRef.current?.contains(event.target as Node)) {
+        setTypeOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", onDocClick);
+    return () => document.removeEventListener("mousedown", onDocClick);
+  }, []);
+
+  function clampArea(value: number) {
+    return Math.min(AREA_MAX, Math.max(AREA_MIN, value));
+  }
+
+  function updateArea(value: number) {
+    const next = clampArea(Math.round(value));
+    setArea(next);
+    setAreaInput(String(next));
+    setOrdered(false);
+  }
+
+  function onAreaInputChange(raw: string) {
+    const digits = raw.replace(/[^\d]/g, "");
+    setAreaInput(digits);
+    if (!digits) return;
+    const parsed = Number(digits);
+    if (!Number.isNaN(parsed)) {
+      setArea(clampArea(parsed));
+      setOrdered(false);
+    }
+  }
+
+  function onAreaInputBlur() {
+    updateArea(Number(areaInput) || AREA_BASE);
+  }
 
   function toggleExtra(id: ExtraId) {
     setOrdered(false);
@@ -192,283 +248,242 @@ export default function CleaningCalculator() {
     });
   }
 
-  function selectCleaningType(id: CleaningType) {
-    setOrdered(false);
-    setCleaningType(id);
-  }
-
-  function selectRooms(value: RoomCount) {
-    setOrdered(false);
-    setRooms(value);
-  }
-
-  function selectBaths(value: BathCount) {
-    setOrdered(false);
-    setBaths(value);
-  }
-
-  function selectPayment(id: PaymentMethod) {
-    setOrdered(false);
-    setPayment(id);
-  }
+  const extrasSummary =
+    selectedExtras.length === 0
+      ? "Ничего не выбрано"
+      : selectedExtras.map((item) => item.label).join(", ");
 
   return (
-    <div className="mx-auto flex w-full max-w-5xl flex-col gap-5 lg:grid lg:grid-cols-[minmax(0,1.2fr)_minmax(300px,0.8fr)] lg:items-start lg:gap-7">
-      <section className="animate-fade-up space-y-5">
-        {/* Cleaning type — stacked on mobile, segmented on sm+ */}
-        <div className="rounded-3xl bg-panel p-3 shadow-md shadow-sky/30 sm:p-4">
-          <p className="mb-3 px-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-muted">
-            Тип уборки
-          </p>
-
-          {/* Mobile: stacked cards */}
-          <div role="tablist" aria-label="Тип уборки" className="grid gap-2.5 sm:hidden">
-            {CLEANING_OPTIONS.map((option) => {
-              const active = cleaningType === option.id;
-              return (
-                <button
-                  key={option.id}
-                  type="button"
-                  role="tab"
-                  aria-selected={active}
-                  onClick={() => selectCleaningType(option.id)}
-                  className={`rounded-2xl px-5 py-4 text-left transition-all duration-300 ease-out ${
-                    active
-                      ? "bg-brand text-white shadow-md shadow-brand/35"
-                      : "bg-slate-100 text-foreground active:scale-[0.99]"
-                  }`}
-                >
-                  <span className="block text-[15px] font-semibold leading-tight">
-                    {option.label}
-                  </span>
-                  <span
-                    className={`mt-1 block text-sm ${
-                      active ? "text-white/80" : "text-muted"
-                    }`}
-                  >
-                    {option.hint}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Desktop/tablet: segmented control */}
-          <div
-            role="tablist"
-            aria-label="Тип уборки"
-            className="hidden rounded-2xl bg-slate-100 p-1.5 sm:grid sm:grid-cols-3 sm:gap-1.5"
+    <div className="w-full rounded-3xl bg-panel p-4 shadow-[0_18px_50px_rgba(17,24,39,0.08)] sm:p-5">
+      <div className="space-y-3">
+        {/* 1. Cleaning type dropdown */}
+        <div ref={typeRef} className="relative">
+          <button
+            type="button"
+            onClick={() => setTypeOpen((open) => !open)}
+            className="flex w-full items-center justify-between rounded-2xl bg-plaque px-4 py-3.5 text-left transition active:scale-[0.995]"
           >
-            {CLEANING_OPTIONS.map((option) => {
-              const active = cleaningType === option.id;
-              return (
-                <button
-                  key={option.id}
-                  type="button"
-                  role="tab"
-                  aria-selected={active}
-                  onClick={() => selectCleaningType(option.id)}
-                  className={`rounded-xl px-4 py-4 text-center transition-all duration-300 ease-out ${
-                    active
-                      ? "bg-brand text-white shadow-md shadow-brand/30"
-                      : "text-foreground hover:bg-white/70"
-                  }`}
-                >
-                  <span className="block text-sm font-semibold leading-tight lg:text-[15px]">
-                    {option.label}
-                  </span>
-                  <span
-                    className={`mt-1 block text-xs lg:text-sm ${
-                      active ? "text-white/80" : "text-muted"
-                    }`}
-                  >
-                    {option.hint}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
+            <span>
+              <span className="block text-[11px] font-medium uppercase tracking-[0.14em] text-muted">
+                Тип уборки
+              </span>
+              <span className="mt-1 block text-lg font-semibold leading-tight text-foreground">
+                {selectedType.label}
+              </span>
+            </span>
+            <span className="ml-3 flex h-9 w-9 items-center justify-center rounded-full bg-white shadow-sm">
+              <ChevronDown open={typeOpen} />
+            </span>
+          </button>
 
-        {/* Rooms & bathrooms — large tiles */}
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div className="rounded-3xl bg-panel p-4 shadow-md shadow-sky/30 sm:p-5">
-            <h3 className="mb-3 text-[11px] font-semibold uppercase tracking-[0.16em] text-muted">
-              Квартира
-            </h3>
-            <div className="grid grid-cols-3 gap-2.5">
-              {ROOM_OPTIONS.map((option) => {
-                const active = rooms === option.value;
-                return (
-                  <button
-                    key={option.value}
-                    type="button"
-                    onClick={() => selectRooms(option.value)}
-                    className={`flex aspect-square flex-col items-center justify-center rounded-2xl transition-all duration-300 ease-out ${
-                      active
-                        ? "bg-brand text-white shadow-md shadow-brand/35 scale-[1.02]"
-                        : "bg-slate-100 text-foreground hover:bg-slate-200/80 active:scale-[0.98]"
-                    }`}
-                  >
-                    <span className="font-[family-name:var(--font-unbounded)] text-2xl font-semibold leading-none sm:text-3xl">
-                      {option.label}
-                    </span>
-                    <span
-                      className={`mt-1.5 text-[11px] font-medium sm:text-xs ${
-                        active ? "text-white/75" : "text-muted"
-                      }`}
-                    >
-                      {option.caption}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          <div className="rounded-3xl bg-panel p-4 shadow-md shadow-sky/30 sm:p-5">
-            <h3 className="mb-3 text-[11px] font-semibold uppercase tracking-[0.16em] text-muted">
-              Санузлы
-            </h3>
-            <div className="grid grid-cols-3 gap-2.5">
-              {BATH_OPTIONS.map((option) => {
-                const active = baths === option.value;
-                return (
-                  <button
-                    key={option.value}
-                    type="button"
-                    onClick={() => selectBaths(option.value)}
-                    className={`flex aspect-square items-center justify-center rounded-2xl transition-all duration-300 ease-out ${
-                      active
-                        ? "bg-brand text-white shadow-md shadow-brand/35 scale-[1.02]"
-                        : "bg-slate-100 text-foreground hover:bg-slate-200/80 active:scale-[0.98]"
-                    }`}
-                  >
-                    <span className="font-[family-name:var(--font-unbounded)] text-2xl font-semibold leading-none sm:text-3xl">
-                      {option.label}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-
-        {/* Extras — always 2 cols on mobile */}
-        <div className="rounded-3xl bg-panel p-4 shadow-md shadow-sky/30 sm:p-5">
-          <h3 className="mb-3 text-[11px] font-semibold uppercase tracking-[0.16em] text-muted">
-            Дополнительные опции
-          </h3>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-3">
-            {EXTRAS.map((extra) => {
-              const active = extras.has(extra.id);
-              return (
-                <button
-                  key={extra.id}
-                  type="button"
-                  onClick={() => toggleExtra(extra.id)}
-                  className={`group flex min-h-[128px] flex-col items-start justify-between rounded-2xl p-4 text-left transition-all duration-300 ease-out ${
-                    active
-                      ? "bg-brand text-white shadow-md shadow-brand/30 scale-[1.01]"
-                      : "bg-slate-100 text-foreground hover:bg-slate-200/70 active:scale-[0.99]"
-                  }`}
-                >
-                  <span
-                    className={`inline-flex h-11 w-11 items-center justify-center rounded-xl transition-all duration-300 ${
-                      active
-                        ? "bg-white/20 text-white"
-                        : "bg-white text-brand-deep shadow-sm"
-                    }`}
-                  >
-                    {extra.icon}
-                  </span>
-                  <span className="mt-3 space-y-1">
-                    <span className="block text-[13px] font-semibold leading-snug sm:text-sm">
-                      {extra.label}
-                    </span>
-                    <span
-                      className={`block text-xs font-medium transition-colors duration-300 ${
-                        active ? "text-white/85" : "text-muted"
-                      }`}
-                    >
-                      +{formatPrice(extra.price)}
-                    </span>
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      </section>
-
-      <aside className="animate-fade-up space-y-4 [animation-delay:100ms] lg:sticky lg:top-6">
-        <div className="overflow-hidden rounded-3xl bg-panel p-4 shadow-md shadow-sky/30 sm:p-5">
-          <div className="animate-float rounded-2xl bg-gradient-to-br from-sky/60 via-white to-mint/70 p-2 sm:p-3">
-            <RoomIllustration />
-          </div>
-          <p className="mt-3 text-center text-sm text-muted">
-            Чистый дом — без сюрпризов в цене
-          </p>
-        </div>
-
-        <div className="rounded-3xl bg-panel p-5 shadow-md shadow-sky/35 sm:p-6">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted">
-            Итоговая стоимость
-          </p>
-          <p
-            key={total}
-            className="price-pop mt-2 font-[family-name:var(--font-unbounded)] text-[2.35rem] font-semibold tracking-tight text-foreground sm:text-5xl"
-          >
-            {formatPrice(total)}
-          </p>
-          {payment === "online" && (
-            <p className="mt-2 text-sm font-medium text-success">
-              Скидка 5% за оплату онлайн
-            </p>
-          )}
-
-          <div className="mt-5 space-y-2.5">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted">
-              Способ оплаты
-            </p>
-            <div className="grid grid-cols-3 gap-2 rounded-2xl bg-slate-100 p-1.5">
-              {PAYMENT_OPTIONS.map((option) => {
-                const active = payment === option.id;
+          {typeOpen && (
+            <div className="animate-sheet absolute left-0 right-0 top-[calc(100%+8px)] z-30 overflow-hidden rounded-2xl bg-white p-1.5 shadow-[0_16px_40px_rgba(17,24,39,0.14)] ring-1 ring-black/5">
+              {CLEANING_OPTIONS.map((option) => {
+                const active = option.id === cleaningType;
                 return (
                   <button
                     key={option.id}
                     type="button"
-                    onClick={() => selectPayment(option.id)}
-                    className={`rounded-xl px-2 py-3.5 text-center transition-all duration-300 ${
+                    onClick={() => {
+                      setCleaningType(option.id);
+                      setTypeOpen(false);
+                      setOrdered(false);
+                    }}
+                    className={`flex w-full items-center justify-between rounded-xl px-3.5 py-3 text-left text-[15px] font-medium transition ${
                       active
-                        ? "bg-brand text-white shadow-md shadow-brand/30"
-                        : "text-foreground hover:bg-white/80"
+                        ? "bg-brand-soft text-brand"
+                        : "text-foreground hover:bg-plaque"
                     }`}
                   >
-                    <span className="block text-[11px] font-bold uppercase tracking-wide sm:text-xs">
-                      {option.label}
-                    </span>
-                    {option.note ? (
-                      <span
-                        className={`mt-0.5 block text-[10px] font-semibold ${
-                          active ? "text-white/85" : "text-success"
-                        }`}
-                      >
-                        {option.note}
-                      </span>
+                    {option.label}
+                    {active ? (
+                      <span className="text-brand">✓</span>
                     ) : null}
                   </button>
                 );
               })}
             </div>
+          )}
+        </div>
+
+        {/* 2. Rooms & bathrooms */}
+        <div className="grid grid-cols-2 gap-3">
+          <div className="rounded-2xl bg-plaque px-3 py-3.5">
+            <p className="text-center text-[11px] font-medium uppercase tracking-[0.14em] text-muted">
+              Комнаты
+            </p>
+            <div className="mt-3 flex items-center justify-between gap-1">
+              <StepperButton
+                label="minus"
+                disabled={rooms <= 1}
+                onClick={() => {
+                  setRooms((value) => Math.max(1, value - 1));
+                  setOrdered(false);
+                }}
+              />
+              <span className="min-w-8 text-center text-2xl font-semibold tabular-nums text-foreground">
+                {rooms}
+              </span>
+              <StepperButton
+                label="plus"
+                disabled={rooms >= 6}
+                onClick={() => {
+                  setRooms((value) => Math.min(6, value + 1));
+                  setOrdered(false);
+                }}
+              />
+            </div>
           </div>
+
+          <div className="rounded-2xl bg-plaque px-3 py-3.5">
+            <p className="text-center text-[11px] font-medium uppercase tracking-[0.14em] text-muted">
+              Санузлы
+            </p>
+            <div className="mt-3 flex items-center justify-between gap-1">
+              <StepperButton
+                label="minus"
+                disabled={baths <= 1}
+                onClick={() => {
+                  setBaths((value) => Math.max(1, value - 1));
+                  setOrdered(false);
+                }}
+              />
+              <span className="min-w-8 text-center text-2xl font-semibold tabular-nums text-foreground">
+                {baths}
+              </span>
+              <StepperButton
+                label="plus"
+                disabled={baths >= 4}
+                onClick={() => {
+                  setBaths((value) => Math.min(4, value + 1));
+                  setOrdered(false);
+                }}
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* 3. Area */}
+        <div className="rounded-2xl bg-plaque px-3.5 py-3.5">
+          <div className="flex items-center gap-3">
+            <span className="shrink-0 text-[11px] font-medium uppercase tracking-[0.12em] text-muted">
+              Площадь
+            </span>
+            <div className="min-w-0 flex-1 px-1">
+              <input
+                type="range"
+                min={AREA_MIN}
+                max={AREA_MAX}
+                value={area}
+                onChange={(event) => updateArea(Number(event.target.value))}
+                className="area-slider"
+                style={{ ["--progress" as string]: `${areaProgress}%` }}
+                aria-label="Площадь помещения"
+              />
+            </div>
+            <label className="relative shrink-0">
+              <input
+                type="text"
+                inputMode="numeric"
+                value={areaInput}
+                onChange={(event) => onAreaInputChange(event.target.value)}
+                onBlur={onAreaInputBlur}
+                className="w-[4.6rem] rounded-xl border-0 bg-white py-2 pl-2.5 pr-8 text-center text-sm font-semibold text-foreground shadow-sm outline-none ring-1 ring-black/5 focus:ring-2 focus:ring-mint/50"
+                aria-label="Площадь в квадратных метрах"
+              />
+              <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[11px] font-medium text-muted">
+                м²
+              </span>
+            </label>
+          </div>
+        </div>
+
+        {/* 4. Extra services */}
+        <div>
+          <button
+            type="button"
+            onClick={() => setExtrasOpen((open) => !open)}
+            className="flex w-full items-center gap-3 rounded-2xl bg-plaque px-4 py-3.5 text-left transition active:scale-[0.995]"
+          >
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-brand shadow-sm">
+              <svg viewBox="0 0 24 24" className="h-5 w-5" fill="currentColor">
+                <rect x="3" y="3" width="8" height="8" rx="2" />
+                <rect x="13" y="3" width="8" height="8" rx="2" />
+                <rect x="3" y="13" width="8" height="8" rx="2" />
+                <rect x="13" y="13" width="8" height="8" rx="2" />
+              </svg>
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-[11px] font-medium uppercase tracking-[0.14em] text-muted">
+                Доп. услуги
+              </span>
+              <span className="mt-0.5 block truncate text-[15px] font-medium text-foreground">
+                {extrasSummary}
+              </span>
+            </span>
+            <ChevronRight open={extrasOpen} />
+          </button>
+
+          {extrasOpen && (
+            <div className="animate-sheet mt-3 rounded-2xl bg-plaque p-3">
+              <div className="grid grid-cols-2 gap-2.5">
+                {EXTRAS.map((extra) => {
+                  const active = extras.has(extra.id);
+                  return (
+                    <button
+                      key={extra.id}
+                      type="button"
+                      onClick={() => toggleExtra(extra.id)}
+                      className={`relative flex min-h-[112px] flex-col items-start justify-between rounded-2xl p-3.5 text-left transition-all duration-200 ${
+                        active
+                          ? "bg-white shadow-md ring-2 ring-mint"
+                          : "bg-white/80 shadow-sm hover:bg-white"
+                      }`}
+                    >
+                      <span className="text-brand">{extra.icon}</span>
+                      <span>
+                        <span className="block text-[13px] font-semibold leading-snug text-foreground">
+                          {extra.label}
+                        </span>
+                        <span className="mt-1 block text-xs text-muted">
+                          +{formatPrice(extra.price)} BYN
+                        </span>
+                      </span>
+                      <span
+                        className={`absolute right-2.5 top-2.5 flex h-7 w-7 items-center justify-center rounded-full text-lg font-medium transition ${
+                          active
+                            ? "bg-mint text-white"
+                            : "bg-plaque text-muted"
+                        }`}
+                      >
+                        {active ? "✓" : "+"}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* 5. Total + CTA */}
+        <div className="pt-2">
+          <p className="text-[12px] font-medium text-muted">Примерная стоимость</p>
+          <p
+            key={total}
+            className="price-pop mt-1 font-[family-name:var(--font-unbounded)] text-[2.35rem] font-semibold leading-none tracking-tight text-foreground"
+          >
+            {formatPrice(total)}{" "}
+            <span className="text-[1.35rem] font-semibold tracking-normal">BYN</span>
+          </p>
 
           <button
             type="button"
             onClick={() => setOrdered(true)}
-            className="animate-cta mt-6 flex min-h-14 w-full items-center justify-center rounded-2xl bg-brand-deep px-4 py-4 text-sm font-bold uppercase tracking-[0.06em] text-white transition hover:bg-brand active:scale-[0.99] sm:text-base"
+            className="mt-5 flex min-h-[56px] w-full items-center justify-center gap-2 rounded-2xl bg-brand px-4 py-4 text-[15px] font-bold uppercase tracking-[0.04em] text-white shadow-[0_12px_28px_rgba(30,58,138,0.28)] transition hover:bg-brand-deep active:scale-[0.99]"
           >
-            Заказать клининг
+            Перейти к заказу
+            <span aria-hidden="true">→</span>
           </button>
 
           {ordered && (
@@ -476,30 +491,6 @@ export default function CleaningCalculator() {
               Заявка принята! Мы свяжемся с вами для подтверждения.
             </p>
           )}
-        </div>
-      </aside>
-
-      {/* Mobile sticky summary */}
-      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-white/60 bg-panel/95 px-4 py-3.5 shadow-[0_-10px_30px_rgba(15,39,68,0.1)] backdrop-blur-md lg:hidden">
-        <div className="mx-auto flex max-w-5xl items-center gap-3">
-          <div className="min-w-0 flex-1">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted">
-              Итого
-            </p>
-            <p
-              key={total}
-              className="price-pop truncate font-[family-name:var(--font-unbounded)] text-xl font-semibold text-foreground"
-            >
-              {formatPrice(total)}
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={() => setOrdered(true)}
-            className="rounded-2xl bg-brand-deep px-5 py-3.5 text-xs font-bold uppercase tracking-wide text-white shadow-md shadow-brand/30"
-          >
-            Заказать
-          </button>
         </div>
       </div>
     </div>
