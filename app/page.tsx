@@ -2,35 +2,37 @@ import CleaningCalculator from "./components/CleaningCalculator";
 
 export default function Home() {
   return (
-    <div className="relative flex flex-1 flex-col pb-28 lg:pb-12">
-      <header className="mx-auto flex w-full max-w-6xl items-center justify-between px-4 pb-2 pt-6 sm:px-6 sm:pt-8">
+    <div className="relative flex min-h-full flex-1 flex-col overflow-x-hidden pb-32 lg:pb-14">
+      <header className="mx-auto flex w-full max-w-5xl items-center justify-between px-4 pt-5 sm:px-6 sm:pt-7">
         <div className="flex items-center gap-3">
-          <span className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-brand text-lg font-bold text-white shadow-[0_10px_24px_rgba(26,140,255,0.35)]">
+          <span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-brand to-brand-deep text-[15px] font-bold text-white shadow-md shadow-brand/30">
             C
           </span>
-          <div>
-            <p className="font-[family-name:var(--font-unbounded)] text-lg font-semibold tracking-tight text-foreground sm:text-xl">
+          <div className="leading-tight">
+            <p className="font-[family-name:var(--font-unbounded)] text-[15px] font-semibold tracking-tight text-foreground sm:text-base">
               CleanPlatform
             </p>
-            <p className="text-xs text-muted sm:text-sm">Клининг без сюрпризов</p>
+            <p className="text-[11px] text-muted sm:text-xs">Клининг без сюрпризов</p>
           </div>
         </div>
         <a
           href="#calculator"
-          className="hidden rounded-full border border-line bg-panel px-4 py-2 text-sm font-semibold text-brand-deep transition hover:border-brand/40 sm:inline-flex"
+          className="rounded-full bg-panel px-3.5 py-2 text-xs font-semibold text-brand-deep shadow-md shadow-sky/40 transition hover:shadow-lg sm:px-4 sm:text-sm"
         >
-          Рассчитать цену
+          Рассчитать
         </a>
       </header>
 
-      <main className="mx-auto w-full max-w-6xl flex-1 px-4 pt-6 sm:px-6 sm:pt-8">
-        <section className="mb-10 max-w-3xl animate-fade-up">
-          <h1 className="font-[family-name:var(--font-unbounded)] text-4xl font-semibold leading-[1.08] tracking-tight text-foreground sm:text-5xl lg:text-[3.4rem]">
-            CleanPlatform
+      <main className="mx-auto w-full max-w-5xl flex-1 px-4 pt-6 sm:px-6 sm:pt-8">
+        <section className="mb-7 animate-fade-up sm:mb-9">
+          <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-brand">
+            Онлайн-расчёт
+          </p>
+          <h1 className="max-w-xl font-[family-name:var(--font-unbounded)] text-[1.65rem] font-semibold leading-snug tracking-tight text-foreground sm:text-3xl">
+            Соберите идеальную уборку за минуту
           </h1>
-          <p className="mt-4 max-w-2xl text-lg leading-relaxed text-muted sm:text-xl">
-            Современный калькулятор уборки: выберите тариф, комнаты и опции —
-            узнайте точную стоимость за пару кликов.
+          <p className="mt-2.5 max-w-lg text-sm leading-relaxed text-muted sm:text-base">
+            Выберите тариф и опции — цена обновится сразу.
           </p>
         </section>
 
@@ -39,8 +41,8 @@ export default function Home() {
         </div>
       </main>
 
-      <footer className="mx-auto mt-12 w-full max-w-6xl px-4 pb-6 text-sm text-muted sm:px-6">
-        © {new Date().getFullYear()} CleanPlatform. Демонстрационный расчёт стоимости.
+      <footer className="mx-auto mt-10 w-full max-w-5xl px-4 pb-4 text-xs text-muted sm:px-6 sm:text-sm">
+        © {new Date().getFullYear()} CleanPlatform
       </footer>
     </div>
   );

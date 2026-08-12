@@ -42,10 +42,10 @@ const CLEANING_OPTIONS: {
   },
 ];
 
-const ROOM_OPTIONS: { value: RoomCount; label: string }[] = [
-  { value: 1, label: "1" },
-  { value: 2, label: "2" },
-  { value: 3, label: "3+" },
+const ROOM_OPTIONS: { value: RoomCount; label: string; caption: string }[] = [
+  { value: 1, label: "1", caption: "комн." },
+  { value: 2, label: "2", caption: "комн." },
+  { value: 3, label: "3+", caption: "комн." },
 ];
 
 const BATH_OPTIONS: { value: BathCount; label: string }[] = [
@@ -66,6 +66,8 @@ const BATH_ADDON: Record<BathCount, number> = {
   3: 1600,
 };
 
+const iconClass = "h-7 w-7";
+
 const EXTRAS: {
   id: ExtraId;
   label: string;
@@ -77,7 +79,7 @@ const EXTRAS: {
     label: "Глажка одежды",
     price: 800,
     icon: (
-      <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <svg viewBox="0 0 24 24" className={iconClass} fill="none" stroke="currentColor" strokeWidth="1.7">
         <path d="M4 18h14a2 2 0 0 0 2-2v-1a6 6 0 0 0-6-6H8L4 13v5Z" strokeLinecap="round" strokeLinejoin="round" />
         <path d="M8 9V6a2 2 0 0 1 2-2h2" strokeLinecap="round" />
       </svg>
@@ -88,7 +90,7 @@ const EXTRAS: {
     label: "Помыть посуду",
     price: 400,
     icon: (
-      <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <svg viewBox="0 0 24 24" className={iconClass} fill="none" stroke="currentColor" strokeWidth="1.7">
         <path d="M4 10h16v2a8 8 0 0 1-16 0v-2Z" strokeLinecap="round" strokeLinejoin="round" />
         <path d="M8 10V7m8 3V8" strokeLinecap="round" />
       </svg>
@@ -99,7 +101,7 @@ const EXTRAS: {
     label: "Уборка балкона",
     price: 600,
     icon: (
-      <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <svg viewBox="0 0 24 24" className={iconClass} fill="none" stroke="currentColor" strokeWidth="1.7">
         <path d="M4 20V10l8-6 8 6v10" strokeLinecap="round" strokeLinejoin="round" />
         <path d="M9 20v-6h6v6" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
@@ -110,7 +112,7 @@ const EXTRAS: {
     label: "Помыть окна",
     price: 1200,
     icon: (
-      <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <svg viewBox="0 0 24 24" className={iconClass} fill="none" stroke="currentColor" strokeWidth="1.7">
         <rect x="4" y="4" width="16" height="16" rx="2" />
         <path d="M12 4v16M4 12h16" strokeLinecap="round" />
       </svg>
@@ -121,7 +123,7 @@ const EXTRAS: {
     label: "СВЧ / Духовка",
     price: 500,
     icon: (
-      <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <svg viewBox="0 0 24 24" className={iconClass} fill="none" stroke="currentColor" strokeWidth="1.7">
         <rect x="3" y="5" width="18" height="14" rx="2" />
         <path d="M7 9h10v6H7z" />
         <circle cx="17" cy="8" r="0.8" fill="currentColor" stroke="none" />
@@ -130,10 +132,10 @@ const EXTRAS: {
   },
   {
     id: "fridge",
-    label: "Мойка внутри холодильника",
+    label: "Мойка холодильника",
     price: 700,
     icon: (
-      <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <svg viewBox="0 0 24 24" className={iconClass} fill="none" stroke="currentColor" strokeWidth="1.7">
         <rect x="6" y="3" width="12" height="18" rx="2" />
         <path d="M6 11h12M9 7v2M9 14v2" strokeLinecap="round" />
       </svg>
@@ -144,7 +146,7 @@ const EXTRAS: {
     label: "Доставка ключей",
     price: 350,
     icon: (
-      <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <svg viewBox="0 0 24 24" className={iconClass} fill="none" stroke="currentColor" strokeWidth="1.7">
         <circle cx="8" cy="14" r="3.5" />
         <path d="M11 12.5 20 4m-4 0h4v4" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
@@ -211,64 +213,90 @@ export default function CleaningCalculator() {
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 lg:grid lg:grid-cols-[minmax(0,1.15fr)_minmax(280px,0.85fr)] lg:items-start lg:gap-10">
-      <section className="animate-fade-up space-y-7">
-        <div className="space-y-3">
-          <p className="text-sm font-semibold uppercase tracking-[0.18em] text-brand">
-            Калькулятор
+    <div className="mx-auto flex w-full max-w-5xl flex-col gap-5 lg:grid lg:grid-cols-[minmax(0,1.2fr)_minmax(300px,0.8fr)] lg:items-start lg:gap-7">
+      <section className="animate-fade-up space-y-5">
+        {/* Cleaning type — stacked on mobile, segmented on sm+ */}
+        <div className="rounded-3xl bg-panel p-3 shadow-md shadow-sky/30 sm:p-4">
+          <p className="mb-3 px-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-muted">
+            Тип уборки
           </p>
-          <h2 className="font-[family-name:var(--font-unbounded)] text-2xl font-semibold leading-tight text-foreground sm:text-3xl">
-            Соберите свою уборку
-          </h2>
-          <p className="max-w-xl text-base text-muted">
-            Выберите тип, параметры квартиры и дополнительные услуги — итоговая
-            стоимость обновится сразу.
-          </p>
-        </div>
 
-        {/* Cleaning type tabs */}
-        <div
-          role="tablist"
-          aria-label="Тип уборки"
-          className="grid gap-3 sm:grid-cols-3"
-        >
-          {CLEANING_OPTIONS.map((option) => {
-            const active = cleaningType === option.id;
-            return (
-              <button
-                key={option.id}
-                type="button"
-                role="tab"
-                aria-selected={active}
-                onClick={() => selectCleaningType(option.id)}
-                className={`rounded-2xl border px-4 py-4 text-left transition-all duration-200 ${
-                  active
-                    ? "border-brand bg-brand text-white shadow-[0_12px_28px_rgba(26,140,255,0.28)] scale-[1.02]"
-                    : "border-line bg-panel text-foreground hover:border-brand/40 hover:bg-brand-soft/60"
-                }`}
-              >
-                <span className="block font-[family-name:var(--font-unbounded)] text-sm font-semibold sm:text-[15px]">
-                  {option.label}
-                </span>
-                <span
-                  className={`mt-1 block text-xs sm:text-sm ${
-                    active ? "text-white/80" : "text-muted"
+          {/* Mobile: stacked cards */}
+          <div role="tablist" aria-label="Тип уборки" className="grid gap-2.5 sm:hidden">
+            {CLEANING_OPTIONS.map((option) => {
+              const active = cleaningType === option.id;
+              return (
+                <button
+                  key={option.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={active}
+                  onClick={() => selectCleaningType(option.id)}
+                  className={`rounded-2xl px-5 py-4 text-left transition-all duration-300 ease-out ${
+                    active
+                      ? "bg-brand text-white shadow-md shadow-brand/35"
+                      : "bg-slate-100 text-foreground active:scale-[0.99]"
                   }`}
                 >
-                  {option.hint}
-                </span>
-              </button>
-            );
-          })}
+                  <span className="block text-[15px] font-semibold leading-tight">
+                    {option.label}
+                  </span>
+                  <span
+                    className={`mt-1 block text-sm ${
+                      active ? "text-white/80" : "text-muted"
+                    }`}
+                  >
+                    {option.hint}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Desktop/tablet: segmented control */}
+          <div
+            role="tablist"
+            aria-label="Тип уборки"
+            className="hidden rounded-2xl bg-slate-100 p-1.5 sm:grid sm:grid-cols-3 sm:gap-1.5"
+          >
+            {CLEANING_OPTIONS.map((option) => {
+              const active = cleaningType === option.id;
+              return (
+                <button
+                  key={option.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={active}
+                  onClick={() => selectCleaningType(option.id)}
+                  className={`rounded-xl px-4 py-4 text-center transition-all duration-300 ease-out ${
+                    active
+                      ? "bg-brand text-white shadow-md shadow-brand/30"
+                      : "text-foreground hover:bg-white/70"
+                  }`}
+                >
+                  <span className="block text-sm font-semibold leading-tight lg:text-[15px]">
+                    {option.label}
+                  </span>
+                  <span
+                    className={`mt-1 block text-xs lg:text-sm ${
+                      active ? "text-white/80" : "text-muted"
+                    }`}
+                  >
+                    {option.hint}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
         </div>
 
-        {/* Room & bathroom params */}
-        <div className="grid gap-5 sm:grid-cols-2">
-          <div className="space-y-3">
-            <h3 className="text-sm font-semibold uppercase tracking-[0.12em] text-muted">
+        {/* Rooms & bathrooms — large tiles */}
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="rounded-3xl bg-panel p-4 shadow-md shadow-sky/30 sm:p-5">
+            <h3 className="mb-3 text-[11px] font-semibold uppercase tracking-[0.16em] text-muted">
               Квартира
             </h3>
-            <div className="flex gap-2">
+            <div className="grid grid-cols-3 gap-2.5">
               {ROOM_OPTIONS.map((option) => {
                 const active = rooms === option.value;
                 return (
@@ -276,15 +304,21 @@ export default function CleaningCalculator() {
                     key={option.value}
                     type="button"
                     onClick={() => selectRooms(option.value)}
-                    className={`min-h-12 flex-1 rounded-xl border text-base font-semibold transition-all ${
+                    className={`flex aspect-square flex-col items-center justify-center rounded-2xl transition-all duration-300 ease-out ${
                       active
-                        ? "border-brand bg-brand-soft text-brand-deep shadow-sm"
-                        : "border-line bg-panel text-foreground hover:border-brand/35"
+                        ? "bg-brand text-white shadow-md shadow-brand/35 scale-[1.02]"
+                        : "bg-slate-100 text-foreground hover:bg-slate-200/80 active:scale-[0.98]"
                     }`}
                   >
-                    {option.label}{" "}
-                    <span className="font-medium text-sm opacity-70">
-                      {option.value === 1 ? "комн." : "комн."}
+                    <span className="font-[family-name:var(--font-unbounded)] text-2xl font-semibold leading-none sm:text-3xl">
+                      {option.label}
+                    </span>
+                    <span
+                      className={`mt-1.5 text-[11px] font-medium sm:text-xs ${
+                        active ? "text-white/75" : "text-muted"
+                      }`}
+                    >
+                      {option.caption}
                     </span>
                   </button>
                 );
@@ -292,11 +326,11 @@ export default function CleaningCalculator() {
             </div>
           </div>
 
-          <div className="space-y-3">
-            <h3 className="text-sm font-semibold uppercase tracking-[0.12em] text-muted">
+          <div className="rounded-3xl bg-panel p-4 shadow-md shadow-sky/30 sm:p-5">
+            <h3 className="mb-3 text-[11px] font-semibold uppercase tracking-[0.16em] text-muted">
               Санузлы
             </h3>
-            <div className="flex gap-2">
+            <div className="grid grid-cols-3 gap-2.5">
               {BATH_OPTIONS.map((option) => {
                 const active = baths === option.value;
                 return (
@@ -304,13 +338,15 @@ export default function CleaningCalculator() {
                     key={option.value}
                     type="button"
                     onClick={() => selectBaths(option.value)}
-                    className={`min-h-12 flex-1 rounded-xl border text-base font-semibold transition-all ${
+                    className={`flex aspect-square items-center justify-center rounded-2xl transition-all duration-300 ease-out ${
                       active
-                        ? "border-brand bg-brand-soft text-brand-deep shadow-sm"
-                        : "border-line bg-panel text-foreground hover:border-brand/35"
+                        ? "bg-brand text-white shadow-md shadow-brand/35 scale-[1.02]"
+                        : "bg-slate-100 text-foreground hover:bg-slate-200/80 active:scale-[0.98]"
                     }`}
                   >
-                    {option.label}
+                    <span className="font-[family-name:var(--font-unbounded)] text-2xl font-semibold leading-none sm:text-3xl">
+                      {option.label}
+                    </span>
                   </button>
                 );
               })}
@@ -318,12 +354,12 @@ export default function CleaningCalculator() {
           </div>
         </div>
 
-        {/* Extras */}
-        <div className="space-y-3">
-          <h3 className="text-sm font-semibold uppercase tracking-[0.12em] text-muted">
+        {/* Extras — always 2 cols on mobile */}
+        <div className="rounded-3xl bg-panel p-4 shadow-md shadow-sky/30 sm:p-5">
+          <h3 className="mb-3 text-[11px] font-semibold uppercase tracking-[0.16em] text-muted">
             Дополнительные опции
           </h3>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-3">
             {EXTRAS.map((extra) => {
               const active = extras.has(extra.id);
               return (
@@ -331,26 +367,30 @@ export default function CleaningCalculator() {
                   key={extra.id}
                   type="button"
                   onClick={() => toggleExtra(extra.id)}
-                  className={`group flex min-h-[112px] flex-col items-start justify-between rounded-2xl border p-3.5 text-left transition-all duration-200 ${
+                  className={`group flex min-h-[128px] flex-col items-start justify-between rounded-2xl p-4 text-left transition-all duration-300 ease-out ${
                     active
-                      ? "border-brand bg-brand-soft shadow-[0_8px_20px_rgba(26,140,255,0.14)]"
-                      : "border-line bg-panel hover:border-brand/35 hover:bg-white"
+                      ? "bg-brand text-white shadow-md shadow-brand/30 scale-[1.01]"
+                      : "bg-slate-100 text-foreground hover:bg-slate-200/70 active:scale-[0.99]"
                   }`}
                 >
                   <span
-                    className={`inline-flex h-10 w-10 items-center justify-center rounded-xl transition-colors ${
+                    className={`inline-flex h-11 w-11 items-center justify-center rounded-xl transition-all duration-300 ${
                       active
-                        ? "bg-brand text-white"
-                        : "bg-sky/50 text-brand-deep group-hover:bg-brand-soft"
+                        ? "bg-white/20 text-white"
+                        : "bg-white text-brand-deep shadow-sm"
                     }`}
                   >
                     {extra.icon}
                   </span>
                   <span className="mt-3 space-y-1">
-                    <span className="block text-sm font-semibold leading-snug text-foreground">
+                    <span className="block text-[13px] font-semibold leading-snug sm:text-sm">
                       {extra.label}
                     </span>
-                    <span className="block text-xs text-muted">
+                    <span
+                      className={`block text-xs font-medium transition-colors duration-300 ${
+                        active ? "text-white/85" : "text-muted"
+                      }`}
+                    >
                       +{formatPrice(extra.price)}
                     </span>
                   </span>
@@ -361,35 +401,37 @@ export default function CleaningCalculator() {
         </div>
       </section>
 
-      <aside className="animate-fade-up space-y-5 [animation-delay:120ms] lg:sticky lg:top-8">
-        <div className="overflow-hidden rounded-[28px] border border-line bg-panel/90 p-4 shadow-[0_18px_40px_rgba(15,39,68,0.06)] backdrop-blur-sm sm:p-5">
-          <div className="animate-float rounded-2xl bg-gradient-to-br from-sky/70 via-white to-mint/80 p-3 sm:p-4">
+      <aside className="animate-fade-up space-y-4 [animation-delay:100ms] lg:sticky lg:top-6">
+        <div className="overflow-hidden rounded-3xl bg-panel p-4 shadow-md shadow-sky/30 sm:p-5">
+          <div className="animate-float rounded-2xl bg-gradient-to-br from-sky/60 via-white to-mint/70 p-2 sm:p-3">
             <RoomIllustration />
           </div>
-          <p className="mt-4 text-center text-sm text-muted">
-            Чистый дом — без лишней суеты и сюрпризов в цене
+          <p className="mt-3 text-center text-sm text-muted">
+            Чистый дом — без сюрпризов в цене
           </p>
         </div>
 
-        <div className="rounded-[28px] border border-line bg-panel p-5 shadow-[0_20px_48px_rgba(15,39,68,0.08)] sm:p-6">
-          <p className="text-sm font-semibold uppercase tracking-[0.14em] text-muted">
+        <div className="rounded-3xl bg-panel p-5 shadow-md shadow-sky/35 sm:p-6">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted">
             Итоговая стоимость
           </p>
           <p
             key={total}
-            className="price-pop mt-2 font-[family-name:var(--font-unbounded)] text-4xl font-semibold tracking-tight text-foreground sm:text-5xl"
+            className="price-pop mt-2 font-[family-name:var(--font-unbounded)] text-[2.35rem] font-semibold tracking-tight text-foreground sm:text-5xl"
           >
             {formatPrice(total)}
           </p>
           {payment === "online" && (
-            <p className="mt-2 text-sm text-success">Скидка 5% за оплату онлайн</p>
+            <p className="mt-2 text-sm font-medium text-success">
+              Скидка 5% за оплату онлайн
+            </p>
           )}
 
-          <div className="mt-5 space-y-2">
-            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">
+          <div className="mt-5 space-y-2.5">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted">
               Способ оплаты
             </p>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-3 gap-2 rounded-2xl bg-slate-100 p-1.5">
               {PAYMENT_OPTIONS.map((option) => {
                 const active = payment === option.id;
                 return (
@@ -397,10 +439,10 @@ export default function CleaningCalculator() {
                     key={option.id}
                     type="button"
                     onClick={() => selectPayment(option.id)}
-                    className={`rounded-xl border px-2 py-3 text-center transition-all ${
+                    className={`rounded-xl px-2 py-3.5 text-center transition-all duration-300 ${
                       active
-                        ? "border-brand bg-brand text-white shadow-sm"
-                        : "border-line bg-white text-foreground hover:border-brand/40"
+                        ? "bg-brand text-white shadow-md shadow-brand/30"
+                        : "text-foreground hover:bg-white/80"
                     }`}
                   >
                     <span className="block text-[11px] font-bold uppercase tracking-wide sm:text-xs">
@@ -408,8 +450,8 @@ export default function CleaningCalculator() {
                     </span>
                     {option.note ? (
                       <span
-                        className={`mt-0.5 block text-[10px] ${
-                          active ? "text-white/80" : "text-success"
+                        className={`mt-0.5 block text-[10px] font-semibold ${
+                          active ? "text-white/85" : "text-success"
                         }`}
                       >
                         {option.note}
@@ -424,13 +466,13 @@ export default function CleaningCalculator() {
           <button
             type="button"
             onClick={() => setOrdered(true)}
-            className="animate-cta mt-6 flex w-full items-center justify-center rounded-2xl bg-brand-deep px-4 py-4 text-sm font-bold uppercase tracking-[0.08em] text-white transition hover:bg-brand active:scale-[0.99] sm:text-base"
+            className="animate-cta mt-6 flex min-h-14 w-full items-center justify-center rounded-2xl bg-brand-deep px-4 py-4 text-sm font-bold uppercase tracking-[0.06em] text-white transition hover:bg-brand active:scale-[0.99] sm:text-base"
           >
             Заказать клининг
           </button>
 
           {ordered && (
-            <p className="mt-3 text-center text-sm text-success" role="status">
+            <p className="mt-3 text-center text-sm font-medium text-success" role="status">
               Заявка принята! Мы свяжемся с вами для подтверждения.
             </p>
           )}
@@ -438,20 +480,23 @@ export default function CleaningCalculator() {
       </aside>
 
       {/* Mobile sticky summary */}
-      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-panel/95 p-3 shadow-[0_-8px_30px_rgba(15,39,68,0.08)] backdrop-blur-md lg:hidden">
-        <div className="mx-auto flex max-w-6xl items-center gap-3">
+      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-white/60 bg-panel/95 px-4 py-3.5 shadow-[0_-10px_30px_rgba(15,39,68,0.1)] backdrop-blur-md lg:hidden">
+        <div className="mx-auto flex max-w-5xl items-center gap-3">
           <div className="min-w-0 flex-1">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted">
               Итого
             </p>
-            <p className="truncate font-[family-name:var(--font-unbounded)] text-xl font-semibold text-foreground">
+            <p
+              key={total}
+              className="price-pop truncate font-[family-name:var(--font-unbounded)] text-xl font-semibold text-foreground"
+            >
               {formatPrice(total)}
             </p>
           </div>
           <button
             type="button"
             onClick={() => setOrdered(true)}
-            className="rounded-xl bg-brand-deep px-4 py-3 text-xs font-bold uppercase tracking-wide text-white"
+            className="rounded-2xl bg-brand-deep px-5 py-3.5 text-xs font-bold uppercase tracking-wide text-white shadow-md shadow-brand/30"
           >
             Заказать
           </button>
