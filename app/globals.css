@@ -1,0 +1,108 @@
+@import "tailwindcss";
+
+:root {
+  --background: #f3f8fc;
+  --foreground: #0f2744;
+  --brand: #1a8cff;
+  --brand-deep: #0b6fd9;
+  --brand-soft: #e8f4ff;
+  --mint: #dff7f2;
+  --sky: #c8e7ff;
+  --panel: #ffffff;
+  --muted: #5b7390;
+  --line: #d7e6f4;
+  --success: #12a38a;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-brand: var(--brand);
+  --color-brand-deep: var(--brand-deep);
+  --color-brand-soft: var(--brand-soft);
+  --color-mint: var(--mint);
+  --color-sky: var(--sky);
+  --color-panel: var(--panel);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --color-success: var(--success);
+  --font-sans: var(--font-manrope);
+  --font-display: var(--font-unbounded);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background:
+    radial-gradient(ellipse 80% 50% at 10% -10%, #c8e7ff 0%, transparent 55%),
+    radial-gradient(ellipse 70% 45% at 95% 5%, #dff7f2 0%, transparent 50%),
+    radial-gradient(ellipse 60% 40% at 50% 100%, #e8f4ff 0%, transparent 55%),
+    var(--background);
+  color: var(--foreground);
+  font-family: var(--font-manrope), sans-serif;
+  min-height: 100%;
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes float-soft {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+@keyframes pulse-glow {
+  0%,
+  100% {
+    box-shadow: 0 10px 30px rgba(26, 140, 255, 0.28);
+  }
+  50% {
+    box-shadow: 0 14px 36px rgba(26, 140, 255, 0.4);
+  }
+}
+
+.animate-fade-up {
+  animation: fade-up 0.55s ease-out both;
+}
+
+.animate-float {
+  animation: float-soft 5s ease-in-out infinite;
+}
+
+.animate-cta {
+  animation: pulse-glow 2.8s ease-in-out infinite;
+}
+
+@keyframes price-pop {
+  0% {
+    transform: scale(0.96);
+    color: var(--brand-deep);
+  }
+  100% {
+    transform: scale(1);
+    color: var(--foreground);
+  }
+}
+
+.price-pop {
+  animation: price-pop 0.28s ease-out;
+}
