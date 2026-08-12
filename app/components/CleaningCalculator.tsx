@@ -168,8 +168,15 @@ const SORT_OPTIONS: { id: SortMode; label: string }[] = [
   { id: "priceAsc", label: "По цене (сначала дешевле)" },
   { id: "priceDesc", label: "По цене (сначала дороже)" },
   { id: "rating", label: "По рейтингу" },
-  { id: "date", label: "По ближайшей дате" },
+  { id: "date", label: "По дате" },
 ];
+
+/** Team size raises the job cost (parallel work, higher crew fee). */
+function teamFactor(cleanerCount: number) {
+  if (cleanerCount <= 1) return 1;
+  if (cleanerCount === 2) return 1.75;
+  return 2.4;
+}
 
 const AREA_MIN = 20;
 const AREA_MAX = 200;
@@ -273,6 +280,7 @@ export default function CleaningCalculator() {
   const [baths, setBaths] = useState(1);
   const [area, setArea] = useState(AREA_BASE);
   const [areaInput, setAreaInput] = useState(String(AREA_BASE));
+  const [cleanerCount, setCleanerCount] = useState(1);
   const [extras, setExtras] = useState<Set<ExtraId>>(new Set());
   const [typeOpen, setTypeOpen] = useState(false);
   const [sortOpen, setSortOpen] = useState(false);
@@ -289,7 +297,7 @@ export default function CleaningCalculator() {
   const selectedSort = SORT_OPTIONS.find((item) => item.id === sortMode)!;
   const selectedExtras = EXTRAS.filter((item) => extras.has(item.id));
 
-  const total = useMemo(() => {
+  const baseJob = useMemo(() => {
     const base = selectedType.base;
     const roomFee = (rooms - 1) * 12;
     const bathFee = (baths - 1) * 8;
@@ -298,20 +306,25 @@ export default function CleaningCalculator() {
       (sum, item) => sum + item.price,
       0,
     );
-    return base + roomFee + bathFee + areaFee + extrasSum;
-  }, [area, baths, extras, rooms, selectedType.base]);
+    return (base + roomFee + bathFee + areaFee + extrasSum) * teamFactor(cleanerCount);
+  }, [area, baths, cleanerCount, extras, rooms, selectedType.base]);
 
   const cleanerOffers = useMemo(() => {
     const offers: CleanerOffer[] = CLEANERS.map((cleaner) => ({
       ...cleaner,
-      price: Math.round(total * cleaner.multiplier),
+      price: Math.round(baseJob * cleaner.multiplier),
       availableDate: formatAvailableDate(cleaner.availableInDays),
     }));
     return sortCleaners(offers, sortMode);
-  }, [sortMode, total]);
+  }, [baseJob, sortMode]);
 
   const minCleanerPrice = useMemo(
     () => Math.min(...cleanerOffers.map((cleaner) => cleaner.price)),
+    [cleanerOffers],
+  );
+
+  const maxCleanerPrice = useMemo(
+    () => Math.max(...cleanerOffers.map((cleaner) => cleaner.price)),
     [cleanerOffers],
   );
 
@@ -521,6 +534,43 @@ export default function CleaningCalculator() {
             </div>
           </div>
 
+          {/* Cleaner count */}
+          <div className="rounded-2xl bg-plaque px-3 py-3.5">
+            <p className="text-center text-[11px] font-medium uppercase tracking-[0.14em] text-muted">
+              Количество клинеров
+            </p>
+            <div className="mt-3 flex items-center justify-between gap-2 px-1">
+              <StepperButton
+                label="minus"
+                disabled={cleanerCount <= 1}
+                onClick={() => {
+                  setCleanerCount((value) => Math.max(1, value - 1));
+                  setSelectedCleanerId(null);
+                }}
+              />
+              <div className="min-w-0 text-center">
+                <span className="block text-2xl font-semibold tabular-nums text-foreground">
+                  {cleanerCount >= 3 ? "3+" : cleanerCount}
+                </span>
+                <span className="mt-0.5 block text-[11px] font-medium text-muted">
+                  {cleanerCount === 1
+                    ? "клинер"
+                    : cleanerCount === 2
+                      ? "клинера"
+                      : "клинеров"}
+                </span>
+              </div>
+              <StepperButton
+                label="plus"
+                disabled={cleanerCount >= 3}
+                onClick={() => {
+                  setCleanerCount((value) => Math.min(3, value + 1));
+                  setSelectedCleanerId(null);
+                }}
+              />
+            </div>
+          </div>
+
           {/* Extra services */}
           <div>
             <button
@@ -587,29 +637,18 @@ export default function CleaningCalculator() {
             )}
           </div>
 
-          {/* Approximate total inside card */}
-          <div className="pt-2">
-            <p className="text-[12px] font-medium text-muted">Примерная стоимость</p>
-            <p
-              key={total}
-              className="price-pop mt-1 font-[family-name:var(--font-unbounded)] text-[2.35rem] font-semibold leading-none tracking-tight text-foreground"
-            >
-              {formatPrice(total)}{" "}
-              <span className="text-[1.35rem] font-semibold tracking-normal">BYN</span>
-            </p>
-          </div>
         </div>
       </div>
 
-      {/* Min cleaner price — under card, above find button */}
+      {/* Live price range from cleaners — under card, above find button */}
       <div className="rounded-2xl bg-panel px-4 py-3.5 shadow-[0_10px_28px_rgba(17,24,39,0.06)]">
         <p className="text-[13px] leading-snug text-muted">
           Стоимость у клинеров:{" "}
           <span
-            key={minCleanerPrice}
+            key={`${minCleanerPrice}-${maxCleanerPrice}`}
             className="price-pop font-semibold text-foreground"
           >
-            от {formatPrice(minCleanerPrice)} BYN
+            от {formatPrice(minCleanerPrice)} до {formatPrice(maxCleanerPrice)} BYN
           </span>
         </p>
       </div>
