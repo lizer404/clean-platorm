@@ -181,12 +181,33 @@ export default function CleaningCalculator() {
   }, [baths, cleaningType, extras, payment, rooms]);
 
   function toggleExtra(id: ExtraId) {
+    setOrdered(false);
     setExtras((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
       return next;
     });
+  }
+
+  function selectCleaningType(id: CleaningType) {
+    setOrdered(false);
+    setCleaningType(id);
+  }
+
+  function selectRooms(value: RoomCount) {
+    setOrdered(false);
+    setRooms(value);
+  }
+
+  function selectBaths(value: BathCount) {
+    setOrdered(false);
+    setBaths(value);
+  }
+
+  function selectPayment(id: PaymentMethod) {
+    setOrdered(false);
+    setPayment(id);
   }
 
   return (
@@ -219,7 +240,7 @@ export default function CleaningCalculator() {
                 type="button"
                 role="tab"
                 aria-selected={active}
-                onClick={() => setCleaningType(option.id)}
+                onClick={() => selectCleaningType(option.id)}
                 className={`rounded-2xl border px-4 py-4 text-left transition-all duration-200 ${
                   active
                     ? "border-brand bg-brand text-white shadow-[0_12px_28px_rgba(26,140,255,0.28)] scale-[1.02]"
@@ -254,7 +275,7 @@ export default function CleaningCalculator() {
                   <button
                     key={option.value}
                     type="button"
-                    onClick={() => setRooms(option.value)}
+                    onClick={() => selectRooms(option.value)}
                     className={`min-h-12 flex-1 rounded-xl border text-base font-semibold transition-all ${
                       active
                         ? "border-brand bg-brand-soft text-brand-deep shadow-sm"
@@ -282,7 +303,7 @@ export default function CleaningCalculator() {
                   <button
                     key={option.value}
                     type="button"
-                    onClick={() => setBaths(option.value)}
+                    onClick={() => selectBaths(option.value)}
                     className={`min-h-12 flex-1 rounded-xl border text-base font-semibold transition-all ${
                       active
                         ? "border-brand bg-brand-soft text-brand-deep shadow-sm"
@@ -375,7 +396,7 @@ export default function CleaningCalculator() {
                   <button
                     key={option.id}
                     type="button"
-                    onClick={() => setPayment(option.id)}
+                    onClick={() => selectPayment(option.id)}
                     className={`rounded-xl border px-2 py-3 text-center transition-all ${
                       active
                         ? "border-brand bg-brand text-white shadow-sm"
