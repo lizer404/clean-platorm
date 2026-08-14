@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
 
 type CleaningType = "maintenance" | "general" | "afterRepair";
 type ExtraId =
@@ -173,10 +173,12 @@ const SORT_OPTIONS: { id: SortMode; label: string }[] = [
 
 /** Team size raises the job cost (parallel work, higher crew fee). */
 function teamFactor(cleanerCount: number) {
-  if (cleanerCount <= 1) return 1;
-  if (cleanerCount === 2) return 1.75;
-  return 2.4;
+  return 1 + (Math.max(1, cleanerCount) - 1) * 0.72;
 }
+
+const MAX_ROOMS = 16;
+const MAX_BATHS = 5;
+const MAX_CLEANERS = 10;
 
 const AREA_MIN = 20;
 const AREA_MAX = 200;
@@ -288,6 +290,8 @@ export default function CleaningCalculator() {
   const [sortMode, setSortMode] = useState<SortMode>("priceAsc");
   const [showCleaners, setShowCleaners] = useState(false);
   const [selectedCleanerId, setSelectedCleanerId] = useState<string | null>(null);
+  const [orderAddress, setOrderAddress] = useState("");
+  const [orderConfirmed, setOrderConfirmed] = useState(false);
 
   const typeRef = useRef<HTMLDivElement>(null);
   const sortRef = useRef<HTMLDivElement>(null);
@@ -340,6 +344,12 @@ export default function CleaningCalculator() {
     return () => document.removeEventListener("mousedown", onDocClick);
   }, []);
 
+  function resetSelection() {
+    setSelectedCleanerId(null);
+    setOrderAddress("");
+    setOrderConfirmed(false);
+  }
+
   function clampArea(value: number) {
     return Math.min(AREA_MAX, Math.max(AREA_MIN, value));
   }
@@ -348,7 +358,7 @@ export default function CleaningCalculator() {
     const next = clampArea(Math.round(value));
     setArea(next);
     setAreaInput(String(next));
-    setSelectedCleanerId(null);
+    resetSelection();
   }
 
   function onAreaInputChange(raw: string) {
@@ -358,7 +368,7 @@ export default function CleaningCalculator() {
     const parsed = Number(digits);
     if (!Number.isNaN(parsed)) {
       setArea(clampArea(parsed));
-      setSelectedCleanerId(null);
+      resetSelection();
     }
   }
 
@@ -367,7 +377,7 @@ export default function CleaningCalculator() {
   }
 
   function toggleExtra(id: ExtraId) {
-    setSelectedCleanerId(null);
+    resetSelection();
     setExtras((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
@@ -378,10 +388,21 @@ export default function CleaningCalculator() {
 
   function findCleaners() {
     setShowCleaners(true);
-    setSelectedCleanerId(null);
+    resetSelection();
     window.requestAnimationFrame(() => {
       cleanersRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
     });
+  }
+
+  function selectCleaner(id: string) {
+    setSelectedCleanerId(id);
+    setOrderConfirmed(false);
+  }
+
+  function confirmOrder(event: FormEvent) {
+    event.preventDefault();
+    if (!orderAddress.trim()) return;
+    setOrderConfirmed(true);
   }
 
   const extrasSummary =
@@ -425,7 +446,7 @@ export default function CleaningCalculator() {
                       onClick={() => {
                         setCleaningType(option.id);
                         setTypeOpen(false);
-                        setSelectedCleanerId(null);
+                        resetSelection();
                       }}
                       className={`flex w-full items-center justify-between rounded-xl px-3.5 py-3 text-left text-[15px] font-medium transition ${
                         active
@@ -454,7 +475,7 @@ export default function CleaningCalculator() {
                   disabled={rooms <= 1}
                   onClick={() => {
                     setRooms((value) => Math.max(1, value - 1));
-                    setSelectedCleanerId(null);
+                    resetSelection();
                   }}
                 />
                 <span className="min-w-8 text-center text-2xl font-semibold tabular-nums text-foreground">
@@ -462,10 +483,10 @@ export default function CleaningCalculator() {
                 </span>
                 <StepperButton
                   label="plus"
-                  disabled={rooms >= 6}
+                  disabled={rooms >= MAX_ROOMS}
                   onClick={() => {
-                    setRooms((value) => Math.min(6, value + 1));
-                    setSelectedCleanerId(null);
+                    setRooms((value) => Math.min(MAX_ROOMS, value + 1));
+                    resetSelection();
                   }}
                 />
               </div>
@@ -481,7 +502,7 @@ export default function CleaningCalculator() {
                   disabled={baths <= 1}
                   onClick={() => {
                     setBaths((value) => Math.max(1, value - 1));
-                    setSelectedCleanerId(null);
+                    resetSelection();
                   }}
                 />
                 <span className="min-w-8 text-center text-2xl font-semibold tabular-nums text-foreground">
@@ -489,10 +510,10 @@ export default function CleaningCalculator() {
                 </span>
                 <StepperButton
                   label="plus"
-                  disabled={baths >= 4}
+                  disabled={baths >= MAX_BATHS}
                   onClick={() => {
-                    setBaths((value) => Math.min(4, value + 1));
-                    setSelectedCleanerId(null);
+                    setBaths((value) => Math.min(MAX_BATHS, value + 1));
+                    resetSelection();
                   }}
                 />
               </div>
@@ -545,27 +566,27 @@ export default function CleaningCalculator() {
                 disabled={cleanerCount <= 1}
                 onClick={() => {
                   setCleanerCount((value) => Math.max(1, value - 1));
-                  setSelectedCleanerId(null);
+                  resetSelection();
                 }}
               />
               <div className="min-w-0 text-center">
                 <span className="block text-2xl font-semibold tabular-nums text-foreground">
-                  {cleanerCount >= 3 ? "3+" : cleanerCount}
+                  {cleanerCount}
                 </span>
                 <span className="mt-0.5 block text-[11px] font-medium text-muted">
                   {cleanerCount === 1
                     ? "клинер"
-                    : cleanerCount === 2
+                    : cleanerCount >= 2 && cleanerCount <= 4
                       ? "клинера"
                       : "клинеров"}
                 </span>
               </div>
               <StepperButton
                 label="plus"
-                disabled={cleanerCount >= 3}
+                disabled={cleanerCount >= MAX_CLEANERS}
                 onClick={() => {
-                  setCleanerCount((value) => Math.min(3, value + 1));
-                  setSelectedCleanerId(null);
+                  setCleanerCount((value) => Math.min(MAX_CLEANERS, value + 1));
+                  resetSelection();
                 }}
               />
             </div>
@@ -768,7 +789,7 @@ export default function CleaningCalculator() {
 
                     <button
                       type="button"
-                      onClick={() => setSelectedCleanerId(cleaner.id)}
+                      onClick={() => selectCleaner(cleaner.id)}
                       className={`mt-3.5 flex w-full items-center justify-center rounded-2xl px-3 py-3 text-sm font-bold transition ${
                         selected
                           ? "bg-mint text-white"
@@ -784,9 +805,44 @@ export default function CleaningCalculator() {
           })}
 
           {selectedCleanerId && (
-            <p className="text-center text-sm font-medium text-success" role="status">
-              Клинер выбран! Можно переходить к оформлению заказа.
-            </p>
+            <form
+              onSubmit={confirmOrder}
+              className="animate-sheet rounded-3xl bg-panel p-4 shadow-[0_14px_36px_rgba(17,24,39,0.07)] sm:p-5"
+            >
+              <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted">
+                Оформление заказа
+              </p>
+              <p className="mt-1 text-sm font-semibold text-foreground">
+                Клинер выбран — укажите адрес уборки
+              </p>
+              <label className="mt-4 block space-y-2">
+                <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted">
+                  Ввод адреса
+                </span>
+                <input
+                  type="text"
+                  required
+                  value={orderAddress}
+                  onChange={(event) => {
+                    setOrderAddress(event.target.value);
+                    setOrderConfirmed(false);
+                  }}
+                  placeholder="Город, улица, дом, квартира"
+                  className="w-full rounded-2xl bg-plaque px-4 py-3.5 text-[15px] font-medium text-foreground outline-none ring-1 ring-transparent transition focus:bg-white focus:ring-mint/50"
+                />
+              </label>
+              <button
+                type="submit"
+                className="mt-3.5 flex min-h-12 w-full items-center justify-center rounded-2xl bg-brand px-4 py-3.5 text-sm font-bold uppercase tracking-[0.04em] text-white transition hover:bg-brand-deep"
+              >
+                Подтвердить заказ
+              </button>
+              {orderConfirmed && (
+                <p className="mt-3 text-center text-sm font-medium text-success" role="status">
+                  Адрес принят! Заказ оформлен — ожидайте подтверждения.
+                </p>
+              )}
+            </form>
           )}
         </div>
       )}

@@ -2,6 +2,7 @@ const STEPS = [
   {
     title: "Опишите заказ",
     text: "Выберите тип уборки, комнаты, площадь и доп. услуги в калькуляторе.",
+    note: "",
     icon: (
       <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="1.7">
         <rect x="4" y="3" width="16" height="18" rx="3" />
@@ -12,29 +13,41 @@ const STEPS = [
   {
     title: "Сравните клинеров",
     text: "Смотрите цены, рейтинг и ближайшие даты — выбирайте удобный вариант.",
+    note: "",
     icon: (
       <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="1.7">
         <circle cx="9" cy="9" r="3.5" />
         <circle cx="15" cy="15" r="3.5" />
-        <path d="m6.5 11.5 11-11" strokeLinecap="round" opacity="0" />
         <path d="M7 14.5 14.5 7" strokeLinecap="round" />
       </svg>
     ),
   },
   {
-    title: "Подтвердите визит",
-    text: "Договоритесь о времени онлайн. Клинер приедет с нужным инвентарём.",
+    title: "Подтвердите визит: оплатите",
+    text: "Укажите адрес, подтвердите время и оплатите заказ — средства заморозятся до завершения.",
+    note: "",
     icon: (
       <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="1.7">
-        <rect x="3" y="5" width="18" height="16" rx="3" />
-        <path d="M8 3v4M16 3v4M3 10h18" strokeLinecap="round" />
-        <path d="m9 15 2 2 4-4" strokeLinecap="round" strokeLinejoin="round" />
+        <rect x="2.5" y="6" width="19" height="12" rx="2.5" />
+        <path d="M2.5 10h19M7 14h3" strokeLinecap="round" />
+      </svg>
+    ),
+  },
+  {
+    title: "Ждите уборку",
+    text: "Клинер приедет в выбранное время с нужным инвентарём и выполнит заказ.",
+    note: "",
+    icon: (
+      <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="1.7">
+        <circle cx="12" cy="12" r="8.5" />
+        <path d="M12 7.5V12l3 2" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
     ),
   },
   {
     title: "Оцените результат",
-    text: "После уборки оставьте отзыв — рейтинг честный и двухсторонний.",
+    text: "Оставьте отзыв клинеру — рейтинг честный и двухсторонний.",
+    note: "Время для отзыва ограничено — 2 часа после завершения уборки",
     icon: (
       <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="1.7">
         <path d="m12 3 2.4 5.4 5.9.5-4.5 3.9 1.4 5.7L12 15.8 6.8 18.5l1.4-5.7L3.7 8.9l5.9-.5L12 3Z" strokeLinejoin="round" />
@@ -55,12 +68,13 @@ const GUARANTEES = [
     ),
   },
   {
-    title: "Гарантия качества",
-    text: "Если что-то не так — поможем переделать заказ или вернуть оплату.",
+    title: "Финансовая безопасность",
+    text: "Оплата замораживается на безопасном счёте. Если что-то пойдёт не так — деньги гарантированно вернутся клиенту.",
     icon: (
       <svg viewBox="0 0 24 24" className="h-7 w-7" fill="none" stroke="currentColor" strokeWidth="1.7">
-        <circle cx="12" cy="12" r="8.5" />
-        <path d="m8.5 12.5 2.3 2.3 4.7-5" strokeLinecap="round" strokeLinejoin="round" />
+        <rect x="3" y="7" width="18" height="12" rx="2.5" />
+        <path d="M3 11h18M8 15h3" strokeLinecap="round" />
+        <path d="M12 7V5.5A2.5 2.5 0 0 0 9.5 3h0A2.5 2.5 0 0 0 7 5.5V7" strokeLinecap="round" />
       </svg>
     ),
   },
@@ -139,14 +153,13 @@ function Stars({ value }: { value: number }) {
 export default function HomeSections() {
   return (
     <div className="space-y-16 sm:space-y-20">
-      {/* How it works */}
       <section id="how-it-works" className="scroll-mt-24">
         <SectionHeading
           eyebrow="Процесс"
           title="Как это работает"
-          text="Четыре простых шага от заявки до идеальной чистоты."
+          text="От заявки до оценки результата — прозрачный сценарий заказа."
         />
-        <div className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
           {STEPS.map((step, index) => (
             <article
               key={step.title}
@@ -162,16 +175,18 @@ export default function HomeSections() {
               </div>
               <h3 className="mt-4 text-[15px] font-semibold text-foreground">{step.title}</h3>
               <p className="mt-2 text-sm leading-relaxed text-muted">{step.text}</p>
+              {step.note ? (
+                <p className="mt-3 text-xs leading-relaxed text-muted/90">{step.note}</p>
+              ) : null}
             </article>
           ))}
         </div>
       </section>
 
-      {/* Guarantees */}
       <section id="guarantees" className="scroll-mt-24">
         <SectionHeading
           eyebrow="Безопасность"
-          title="Гарантии качества и безопасности"
+          title="Гарантии и безопасность"
           text="Мы следим за стандартами сервиса, чтобы заказ был спокойным для обеих сторон."
         />
         <div className="mt-8 grid gap-3 md:grid-cols-3">
@@ -190,7 +205,6 @@ export default function HomeSections() {
         </div>
       </section>
 
-      {/* Reviews */}
       <section id="reviews" className="scroll-mt-24">
         <SectionHeading
           eyebrow="Доверие"

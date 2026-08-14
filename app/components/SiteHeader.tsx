@@ -1,6 +1,13 @@
 "use client";
 
-import { useEffect, useId, useState, type FormEvent, type ReactNode } from "react";
+import {
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  type FormEvent,
+  type ReactNode,
+} from "react";
 
 type ModalKind = "account" | "cleaner" | null;
 
@@ -9,6 +16,8 @@ const NAV_LINKS = [
   { href: "#reviews", label: "Отзывы" },
   { href: "#guarantees", label: "Гарантии" },
 ] as const;
+
+const PHONE_PREFIX = "+375 ";
 
 function ProfileIcon() {
   return (
@@ -32,6 +41,93 @@ function MenuIcon() {
     <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2">
       <path d="M4 7h16M4 12h16M4 17h16" strokeLinecap="round" />
     </svg>
+  );
+}
+
+function extractLocalDigits(value: string) {
+  let digits = value.replace(/\D/g, "");
+  if (digits.startsWith("375")) digits = digits.slice(3);
+  return digits.slice(0, 9);
+}
+
+function formatBelarusPhone(value: string) {
+  const digits = extractLocalDigits(value);
+  const parts = [
+    digits.slice(0, 2),
+    digits.slice(2, 5),
+    digits.slice(5, 7),
+    digits.slice(7, 9),
+  ].filter(Boolean);
+
+  if (parts.length === 0) return PHONE_PREFIX;
+  if (parts.length === 1) return `${PHONE_PREFIX}${parts[0]}`;
+  if (parts.length === 2) return `${PHONE_PREFIX}${parts[0]} ${parts[1]}`;
+  if (parts.length === 3) return `${PHONE_PREFIX}${parts[0]} ${parts[1]}-${parts[2]}`;
+  return `${PHONE_PREFIX}${parts[0]} ${parts[1]}-${parts[2]}-${parts[3]}`;
+}
+
+function BelarusPhoneInput({
+  value,
+  onChange,
+  id,
+}: {
+  value: string;
+  onChange: (next: string) => void;
+  id?: string;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  function placeCaretAfterPrefix() {
+    const input = inputRef.current;
+    if (!input) return;
+    const min = PHONE_PREFIX.length;
+    requestAnimationFrame(() => {
+      const start = input.selectionStart ?? min;
+      const end = input.selectionEnd ?? min;
+      if (start < min || end < min) {
+        input.setSelectionRange(min, Math.max(end, min));
+      }
+    });
+  }
+
+  return (
+    <input
+      ref={inputRef}
+      id={id}
+      type="tel"
+      inputMode="tel"
+      required
+      value={value}
+      onChange={(event) => onChange(formatBelarusPhone(event.target.value))}
+      onFocus={placeCaretAfterPrefix}
+      onClick={placeCaretAfterPrefix}
+      onKeyDown={(event) => {
+        const input = inputRef.current;
+        if (!input) return;
+        const min = PHONE_PREFIX.length;
+        const start = input.selectionStart ?? 0;
+        const end = input.selectionEnd ?? 0;
+
+        if (
+          (event.key === "Backspace" && start <= min && end <= min) ||
+          (event.key === "Delete" && start < min)
+        ) {
+          event.preventDefault();
+          placeCaretAfterPrefix();
+          return;
+        }
+
+        if (
+          (event.key === "ArrowLeft" || event.key === "Home") &&
+          start <= min
+        ) {
+          event.preventDefault();
+          placeCaretAfterPrefix();
+        }
+      }}
+      placeholder="+375 XX XXX-XX-XX"
+      className="w-full rounded-2xl bg-plaque px-4 py-3.5 text-[15px] font-medium text-foreground outline-none ring-1 ring-transparent transition focus:bg-white focus:ring-mint/50"
+    />
   );
 }
 
@@ -100,11 +196,12 @@ function ModalShell({
 }
 
 function AccountModal({ onClose }: { onClose: () => void }) {
-  const [phone, setPhone] = useState("+375 ");
+  const [phone, setPhone] = useState(PHONE_PREFIX);
   const [sent, setSent] = useState(false);
 
   function onSubmit(event: FormEvent) {
     event.preventDefault();
+    if (extractLocalDigits(phone).length < 9) return;
     setSent(true);
   }
 
@@ -119,17 +216,12 @@ function AccountModal({ onClose }: { onClose: () => void }) {
           <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted">
             Телефон
           </span>
-          <input
-            type="tel"
-            inputMode="tel"
-            required
+          <BelarusPhoneInput
             value={phone}
-            onChange={(event) => {
-              setPhone(event.target.value);
+            onChange={(next) => {
+              setPhone(next);
               setSent(false);
             }}
-            placeholder="+375 XX XXX-XX-XX"
-            className="w-full rounded-2xl bg-plaque px-4 py-3.5 text-[15px] font-medium text-foreground outline-none ring-1 ring-transparent transition focus:bg-white focus:ring-mint/50"
           />
         </label>
         <button
@@ -140,7 +232,7 @@ function AccountModal({ onClose }: { onClose: () => void }) {
         </button>
         {sent && (
           <p className="text-center text-sm font-medium text-success" role="status">
-            Код отправлен на {phone.trim() || "ваш номер"}
+            Код отправлен на {phone.trim()}
           </p>
         )}
       </form>
@@ -150,12 +242,14 @@ function AccountModal({ onClose }: { onClose: () => void }) {
 
 function CleanerApplyModal({ onClose }: { onClose: () => void }) {
   const [name, setName] = useState("");
-  const [phone, setPhone] = useState("");
+  const [phone, setPhone] = useState(PHONE_PREFIX);
   const [experience, setExperience] = useState("");
+  const [unp, setUnp] = useState("");
   const [sent, setSent] = useState(false);
 
   function onSubmit(event: FormEvent) {
     event.preventDefault();
+    if (extractLocalDigits(phone).length < 9) return;
     setSent(true);
   }
 
@@ -186,17 +280,12 @@ function CleanerApplyModal({ onClose }: { onClose: () => void }) {
           <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted">
             Телефон
           </span>
-          <input
-            type="tel"
-            inputMode="tel"
-            required
+          <BelarusPhoneInput
             value={phone}
-            onChange={(event) => {
-              setPhone(event.target.value);
+            onChange={(next) => {
+              setPhone(next);
               setSent(false);
             }}
-            placeholder="+375 XX XXX-XX-XX"
-            className="w-full rounded-2xl bg-plaque px-4 py-3.5 text-[15px] font-medium text-foreground outline-none ring-1 ring-transparent transition focus:bg-white focus:ring-mint/50"
           />
         </label>
         <label className="block space-y-2">
@@ -213,6 +302,23 @@ function CleanerApplyModal({ onClose }: { onClose: () => void }) {
             }}
             placeholder="Сколько лет в клининге, какие объекты"
             className="w-full resize-none rounded-2xl bg-plaque px-4 py-3.5 text-[15px] font-medium text-foreground outline-none ring-1 ring-transparent transition focus:bg-white focus:ring-mint/50"
+          />
+        </label>
+        <label className="block space-y-2">
+          <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted">
+            УНП
+          </span>
+          <input
+            type="text"
+            required
+            inputMode="numeric"
+            value={unp}
+            onChange={(event) => {
+              setUnp(event.target.value.replace(/[^\d]/g, "").slice(0, 9));
+              setSent(false);
+            }}
+            placeholder="9 цифр"
+            className="w-full rounded-2xl bg-plaque px-4 py-3.5 text-[15px] font-medium text-foreground outline-none ring-1 ring-transparent transition focus:bg-white focus:ring-mint/50"
           />
         </label>
         <button
@@ -254,7 +360,7 @@ export default function SiteHeader() {
 
   return (
     <>
-      <header className="sticky top-0 z-50 border-b border-white/50 bg-panel/85 backdrop-blur-md">
+      <header className="sticky top-0 z-50 border-b border-white/60 bg-panel/80 shadow-[0_8px_24px_rgba(17,24,39,0.04)] backdrop-blur-xl supports-[backdrop-filter]:bg-panel/70">
         <div className="mx-auto flex w-full max-w-6xl items-center gap-3 px-4 py-3 sm:px-6">
           <a href="#calculator" className="flex min-w-0 items-center gap-2.5">
             <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-brand text-sm font-bold text-white shadow-sm">
@@ -305,7 +411,6 @@ export default function SiteHeader() {
         </div>
       </header>
 
-      {/* Mobile drawer */}
       {menuOpen && (
         <div className="fixed inset-0 z-[60] lg:hidden">
           <button
