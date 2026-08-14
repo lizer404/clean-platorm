@@ -6,10 +6,10 @@ import SiteHeader from "./components/SiteHeader";
 export default function Home() {
   return (
     <AuthProvider>
-      <div className="relative flex min-h-full flex-1 flex-col overflow-x-hidden">
+      <div className="relative flex min-h-full flex-1 flex-col">
         <SiteHeader />
 
-        <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col px-4 pb-16 pt-6 sm:px-6 sm:pt-8">
+        <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col overflow-x-hidden px-4 pb-16 pt-6 sm:px-6 sm:pt-8">
           <section className="mb-8 max-w-xl animate-fade-up sm:mb-10">
             <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-brand">
               Онлайн-расчёт
