@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { useAuth } from "./AuthProvider";
+import OrderChat from "./OrderChat";
 
 type CleaningType = "maintenance" | "general" | "afterRepair";
 type ExtraId =
@@ -162,6 +164,105 @@ const CLEANERS: CleanerProfile[] = [
     accent: "#7C5CFC",
     note: "Топ рейтинг",
   },
+  {
+    id: "igor",
+    name: "Игорь Савченко",
+    initials: "ИС",
+    rating: 4.8,
+    reviews: 167,
+    multiplier: 0.98,
+    availableInDays: 3,
+    accent: "#0EA5E9",
+    note: "Быстрый выезд",
+  },
+  {
+    id: "maria",
+    name: "Мария Лебедева",
+    initials: "МЛ",
+    rating: 4.95,
+    reviews: 301,
+    multiplier: 1.12,
+    availableInDays: 2,
+    accent: "#EC4899",
+    note: "Премиум-сервис",
+  },
+  {
+    id: "pavel",
+    name: "Павел Крук",
+    initials: "ПК",
+    rating: 4.6,
+    reviews: 88,
+    multiplier: 0.9,
+    availableInDays: 5,
+    accent: "#F59E0B",
+    note: "Бюджетный вариант",
+  },
+  {
+    id: "olga",
+    name: "Ольга Новик",
+    initials: "ОН",
+    rating: 4.85,
+    reviews: 142,
+    multiplier: 1.08,
+    availableInDays: 1,
+    accent: "#14B8A6",
+    note: "Сегодня вечером",
+  },
+  {
+    id: "kirill",
+    name: "Кирилл Жук",
+    initials: "КЖ",
+    rating: 4.75,
+    reviews: 119,
+    multiplier: 1.0,
+    availableInDays: 3,
+    accent: "#6366F1",
+    note: "Опыт 7 лет",
+  },
+  {
+    id: "svetlana",
+    name: "Светлана Рысь",
+    initials: "СР",
+    rating: 4.92,
+    reviews: 205,
+    multiplier: 1.15,
+    availableInDays: 4,
+    accent: "#DB2777",
+    note: "Глубокая уборка",
+  },
+  {
+    id: "artem",
+    name: "Артём Волк",
+    initials: "АВ",
+    rating: 4.55,
+    reviews: 74,
+    multiplier: 0.95,
+    availableInDays: 6,
+    accent: "#64748B",
+    note: "Гибкий график",
+  },
+  {
+    id: "nastya",
+    name: "Настя Бондарь",
+    initials: "НБ",
+    rating: 4.88,
+    reviews: 156,
+    multiplier: 1.03,
+    availableInDays: 2,
+    accent: "#06B6D4",
+    note: "Аккуратная команда",
+  },
+  {
+    id: "roman",
+    name: "Роман Гладкий",
+    initials: "РГ",
+    rating: 4.7,
+    reviews: 101,
+    multiplier: 1.1,
+    availableInDays: 3,
+    accent: "#8B5CF6",
+    note: "После ремонта",
+  },
 ];
 
 const SORT_OPTIONS: { id: SortMode; label: string }[] = [
@@ -289,9 +390,13 @@ export default function CleaningCalculator() {
   const [extrasOpen, setExtrasOpen] = useState(false);
   const [sortMode, setSortMode] = useState<SortMode>("priceAsc");
   const [showCleaners, setShowCleaners] = useState(false);
-  const [selectedCleanerId, setSelectedCleanerId] = useState<string | null>(null);
+  const [selectedCleanerIds, setSelectedCleanerIds] = useState<string[]>([]);
   const [orderAddress, setOrderAddress] = useState("");
-  const [orderConfirmed, setOrderConfirmed] = useState(false);
+  const [showAddressStep, setShowAddressStep] = useState(false);
+  const [chatOpen, setChatOpen] = useState(false);
+  const [orderId, setOrderId] = useState("");
+
+  const { isAuthenticated, userPhone, openAccountModal } = useAuth();
 
   const typeRef = useRef<HTMLDivElement>(null);
   const sortRef = useRef<HTMLDivElement>(null);
@@ -345,9 +450,19 @@ export default function CleaningCalculator() {
   }, []);
 
   function resetSelection() {
-    setSelectedCleanerId(null);
+    setSelectedCleanerIds([]);
     setOrderAddress("");
-    setOrderConfirmed(false);
+    setShowAddressStep(false);
+    setChatOpen(false);
+    setOrderId("");
+  }
+
+  function revealCleaners() {
+    resetSelection();
+    setShowCleaners(true);
+    window.requestAnimationFrame(() => {
+      cleanersRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
   }
 
   function clampArea(value: number) {
@@ -387,23 +502,45 @@ export default function CleaningCalculator() {
   }
 
   function findCleaners() {
-    setShowCleaners(true);
-    resetSelection();
-    window.requestAnimationFrame(() => {
-      cleanersRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    if (!isAuthenticated) {
+      openAccountModal(() => revealCleaners());
+      return;
+    }
+    revealCleaners();
+  }
+
+  function toggleCleanerSelection(id: string) {
+    setShowAddressStep(false);
+    setChatOpen(false);
+    setSelectedCleanerIds((prev) => {
+      if (prev.includes(id)) return prev.filter((item) => item !== id);
+      if (prev.length >= cleanerCount) return prev;
+      return [...prev, id];
     });
   }
 
-  function selectCleaner(id: string) {
-    setSelectedCleanerId(id);
-    setOrderConfirmed(false);
+  const selectionComplete = selectedCleanerIds.length === cleanerCount;
+
+  function continueToAddress() {
+    if (!selectionComplete) return;
+    setShowAddressStep(true);
   }
 
   function confirmOrder(event: FormEvent) {
     event.preventDefault();
-    if (!orderAddress.trim()) return;
-    setOrderConfirmed(true);
+    if (!orderAddress.trim() || !selectionComplete) return;
+    const id = `ORD-${Date.now().toString().slice(-6)}`;
+    setOrderId(id);
+    setChatOpen(true);
+    window.requestAnimationFrame(() => {
+      document.getElementById("order-chat")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
   }
+
+  const selectedCleaners = useMemo(
+    () => cleanerOffers.filter((cleaner) => selectedCleanerIds.includes(cleaner.id)),
+    [cleanerOffers, selectedCleanerIds],
+  );
 
   const extrasSummary =
     selectedExtras.length === 0
@@ -566,7 +703,9 @@ export default function CleaningCalculator() {
                 disabled={cleanerCount <= 1}
                 onClick={() => {
                   setCleanerCount((value) => Math.max(1, value - 1));
-                  resetSelection();
+                  setSelectedCleanerIds((prev) => prev.slice(0, Math.max(1, cleanerCount - 1)));
+                  setShowAddressStep(false);
+                  setChatOpen(false);
                 }}
               />
               <div className="min-w-0 text-center">
@@ -586,7 +725,8 @@ export default function CleaningCalculator() {
                 disabled={cleanerCount >= MAX_CLEANERS}
                 onClick={() => {
                   setCleanerCount((value) => Math.min(MAX_CLEANERS, value + 1));
-                  resetSelection();
+                  setShowAddressStep(false);
+                  setChatOpen(false);
                 }}
               />
             </div>
@@ -730,23 +870,35 @@ export default function CleaningCalculator() {
         Найти клинера
         <span aria-hidden="true">→</span>
       </button>
+      {!isAuthenticated && (
+        <p className="px-1 text-center text-xs text-muted">
+          Для поиска исполнителей потребуется вход в личный кабинет по телефону.
+        </p>
+      )}
 
       {/* Cleaner cards */}
-      {showCleaners && (
+      {showCleaners && !chatOpen && (
         <div ref={cleanersRef} className="animate-sheet space-y-3 pt-1">
-          <p className="px-1 text-[11px] font-medium uppercase tracking-[0.14em] text-muted">
-            Найдено клинеров: {cleanerOffers.length}
-          </p>
+          <div className="flex items-center justify-between gap-3 px-1">
+            <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted">
+              Найдено: {cleanerOffers.length}
+            </p>
+            <p className="rounded-full bg-brand-soft px-3 py-1 text-xs font-bold text-brand">
+              Выбрано {selectedCleanerIds.length} из {cleanerCount}
+            </p>
+          </div>
 
           {cleanerOffers.map((cleaner, index) => {
-            const selected = selectedCleanerId === cleaner.id;
+            const selected = selectedCleanerIds.includes(cleaner.id);
+            const selectionLocked =
+              !selected && selectedCleanerIds.length >= cleanerCount;
             return (
               <article
                 key={`${cleaner.id}-${sortMode}-${cleaner.price}`}
                 className={`animate-sheet rounded-3xl bg-panel p-4 shadow-[0_14px_36px_rgba(17,24,39,0.07)] transition ${
                   selected ? "ring-2 ring-mint" : ""
-                }`}
-                style={{ animationDelay: `${index * 60}ms` }}
+                } ${selectionLocked ? "opacity-60" : ""}`}
+                style={{ animationDelay: `${index * 40}ms` }}
               >
                 <div className="flex items-start gap-3">
                   <div
@@ -789,8 +941,9 @@ export default function CleaningCalculator() {
 
                     <button
                       type="button"
-                      onClick={() => selectCleaner(cleaner.id)}
-                      className={`mt-3.5 flex w-full items-center justify-center rounded-2xl px-3 py-3 text-sm font-bold transition ${
+                      disabled={selectionLocked}
+                      onClick={() => toggleCleanerSelection(cleaner.id)}
+                      className={`mt-3.5 flex w-full items-center justify-center rounded-2xl px-3 py-3 text-sm font-bold transition disabled:cursor-not-allowed ${
                         selected
                           ? "bg-mint text-white"
                           : "bg-plaque text-foreground hover:bg-brand-soft hover:text-brand"
@@ -804,7 +957,16 @@ export default function CleaningCalculator() {
             );
           })}
 
-          {selectedCleanerId && (
+          <button
+            type="button"
+            disabled={!selectionComplete}
+            onClick={continueToAddress}
+            className="flex min-h-12 w-full items-center justify-center rounded-2xl bg-brand px-4 py-3.5 text-sm font-bold uppercase tracking-[0.04em] text-white transition hover:bg-brand-deep disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none"
+          >
+            Продолжить · выбрано {selectedCleanerIds.length} из {cleanerCount}
+          </button>
+
+          {showAddressStep && selectionComplete && (
             <form
               onSubmit={confirmOrder}
               className="animate-sheet rounded-3xl bg-panel p-4 shadow-[0_14px_36px_rgba(17,24,39,0.07)] sm:p-5"
@@ -813,7 +975,13 @@ export default function CleaningCalculator() {
                 Оформление заказа
               </p>
               <p className="mt-1 text-sm font-semibold text-foreground">
-                Клинер выбран — укажите адрес уборки
+                Выбрано {cleanerCount}{" "}
+                {cleanerCount === 1
+                  ? "исполнитель"
+                  : cleanerCount >= 2 && cleanerCount <= 4
+                    ? "исполнителя"
+                    : "исполнителей"}
+                — укажите адрес уборки
               </p>
               <label className="mt-4 block space-y-2">
                 <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted">
@@ -823,10 +991,7 @@ export default function CleaningCalculator() {
                   type="text"
                   required
                   value={orderAddress}
-                  onChange={(event) => {
-                    setOrderAddress(event.target.value);
-                    setOrderConfirmed(false);
-                  }}
+                  onChange={(event) => setOrderAddress(event.target.value)}
                   placeholder="Город, улица, дом, квартира"
                   className="w-full rounded-2xl bg-plaque px-4 py-3.5 text-[15px] font-medium text-foreground outline-none ring-1 ring-transparent transition focus:bg-white focus:ring-mint/50"
                 />
@@ -835,15 +1000,22 @@ export default function CleaningCalculator() {
                 type="submit"
                 className="mt-3.5 flex min-h-12 w-full items-center justify-center rounded-2xl bg-brand px-4 py-3.5 text-sm font-bold uppercase tracking-[0.04em] text-white transition hover:bg-brand-deep"
               >
-                Подтвердить заказ
+                Открыть чат заказа
               </button>
-              {orderConfirmed && (
-                <p className="mt-3 text-center text-sm font-medium text-success" role="status">
-                  Адрес принят! Заказ оформлен — ожидайте подтверждения.
-                </p>
-              )}
             </form>
           )}
+        </div>
+      )}
+
+      {chatOpen && (
+        <div id="order-chat" className="pt-1">
+          <OrderChat
+            orderId={orderId}
+            address={orderAddress}
+            cleaners={selectedCleaners}
+            userPhone={userPhone}
+            onClose={() => setChatOpen(false)}
+          />
         </div>
       )}
     </div>

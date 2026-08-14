@@ -8,8 +8,7 @@ import {
   type FormEvent,
   type ReactNode,
 } from "react";
-
-type ModalKind = "account" | "cleaner" | null;
+import { useAuth } from "./AuthProvider";
 
 const NAV_LINKS = [
   { href: "#how-it-works", label: "Как это работает" },
@@ -117,10 +116,7 @@ function BelarusPhoneInput({
           return;
         }
 
-        if (
-          (event.key === "ArrowLeft" || event.key === "Home") &&
-          start <= min
-        ) {
+        if ((event.key === "ArrowLeft" || event.key === "Home") && start <= min) {
           event.preventDefault();
           placeCaretAfterPrefix();
         }
@@ -158,7 +154,7 @@ function ModalShell({
   }, [onClose]);
 
   return (
-    <div className="fixed inset-0 z-[70] flex items-end justify-center p-4 sm:items-center">
+    <div className="fixed inset-0 z-[110] flex items-end justify-center p-4 sm:items-center">
       <button
         type="button"
         aria-label="Закрыть"
@@ -195,14 +191,19 @@ function ModalShell({
   );
 }
 
-function AccountModal({ onClose }: { onClose: () => void }) {
+function AccountModal({
+  onClose,
+  onSuccess,
+}: {
+  onClose: () => void;
+  onSuccess: (phone: string) => void;
+}) {
   const [phone, setPhone] = useState(PHONE_PREFIX);
-  const [sent, setSent] = useState(false);
 
   function onSubmit(event: FormEvent) {
     event.preventDefault();
     if (extractLocalDigits(phone).length < 9) return;
-    setSent(true);
+    onSuccess(phone.trim());
   }
 
   return (
@@ -216,13 +217,7 @@ function AccountModal({ onClose }: { onClose: () => void }) {
           <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted">
             Телефон
           </span>
-          <BelarusPhoneInput
-            value={phone}
-            onChange={(next) => {
-              setPhone(next);
-              setSent(false);
-            }}
-          />
+          <BelarusPhoneInput value={phone} onChange={setPhone} />
         </label>
         <button
           type="submit"
@@ -230,11 +225,9 @@ function AccountModal({ onClose }: { onClose: () => void }) {
         >
           Получить код
         </button>
-        {sent && (
-          <p className="text-center text-sm font-medium text-success" role="status">
-            Код отправлен на {phone.trim()}
-          </p>
-        )}
+        <p className="text-center text-xs text-muted">
+          После подтверждения номера вы сможете выбрать исполнителей и открыть чат заказа.
+        </p>
       </form>
     </ModalShell>
   );
@@ -294,14 +287,14 @@ function CleanerApplyModal({ onClose }: { onClose: () => void }) {
           </span>
           <textarea
             required
-            rows={3}
+            rows={5}
             value={experience}
             onChange={(event) => {
               setExperience(event.target.value);
               setSent(false);
             }}
-            placeholder="Сколько лет в клининге, какие объекты"
-            className="w-full resize-none rounded-2xl bg-plaque px-4 py-3.5 text-[15px] font-medium text-foreground outline-none ring-1 ring-transparent transition focus:bg-white focus:ring-mint/50"
+            placeholder="Сколько лет в клининге, какие объекты, какая химия, какие расходники, каков планируемый график работы?"
+            className="w-full resize-none rounded-2xl bg-plaque px-4 py-3.5 text-[15px] font-medium leading-relaxed text-foreground outline-none ring-1 ring-transparent transition focus:bg-white focus:ring-mint/50"
           />
         </label>
         <label className="block space-y-2">
@@ -339,7 +332,17 @@ function CleanerApplyModal({ onClose }: { onClose: () => void }) {
 
 export default function SiteHeader() {
   const [menuOpen, setMenuOpen] = useState(false);
-  const [modal, setModal] = useState<ModalKind>(null);
+  const {
+    isAuthenticated,
+    userPhone,
+    login,
+    accountModalOpen,
+    openAccountModal,
+    closeAccountModal,
+    cleanerModalOpen,
+    openCleanerModal,
+    closeCleanerModal,
+  } = useAuth();
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -360,7 +363,7 @@ export default function SiteHeader() {
 
   return (
     <>
-      <header className="sticky top-0 z-50 border-b border-line/80 bg-panel/95 shadow-[0_8px_24px_rgba(17,24,39,0.06)] backdrop-blur-xl supports-[backdrop-filter]:bg-panel/90">
+      <header className="sticky top-0 z-[100] border-b border-line/70 bg-white/90 shadow-[0_8px_24px_rgba(17,24,39,0.05)] backdrop-blur-md">
         <div className="mx-auto flex w-full max-w-6xl items-center gap-3 px-4 py-3 sm:px-6">
           <a href="#calculator" className="flex min-w-0 items-center gap-2.5">
             <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-brand text-sm font-bold text-white shadow-sm">
@@ -386,15 +389,17 @@ export default function SiteHeader() {
           <div className="ml-auto flex items-center gap-2">
             <button
               type="button"
-              onClick={() => setModal("account")}
+              onClick={() => openAccountModal()}
               className="inline-flex items-center gap-2 rounded-full bg-plaque px-3 py-2 text-sm font-semibold text-foreground transition hover:bg-line"
             >
               <ProfileIcon />
-              <span className="hidden sm:inline">Личный кабинет</span>
+              <span className="hidden max-w-[140px] truncate sm:inline">
+                {isAuthenticated && userPhone ? userPhone : "Личный кабинет"}
+              </span>
             </button>
             <button
               type="button"
-              onClick={() => setModal("cleaner")}
+              onClick={openCleanerModal}
               className="hidden rounded-full bg-brand px-3.5 py-2 text-sm font-bold text-white shadow-sm transition hover:bg-brand-deep sm:inline-flex"
             >
               Стать клинером
@@ -412,7 +417,7 @@ export default function SiteHeader() {
       </header>
 
       {menuOpen && (
-        <div className="fixed inset-0 z-[60] lg:hidden">
+        <div className="fixed inset-0 z-[105] lg:hidden">
           <button
             type="button"
             aria-label="Закрыть меню"
@@ -451,7 +456,7 @@ export default function SiteHeader() {
                 type="button"
                 onClick={() => {
                   setMenuOpen(false);
-                  setModal("account");
+                  openAccountModal();
                 }}
                 className="flex w-full items-center justify-center gap-2 rounded-2xl bg-plaque px-4 py-3.5 text-sm font-bold text-foreground"
               >
@@ -462,7 +467,7 @@ export default function SiteHeader() {
                 type="button"
                 onClick={() => {
                   setMenuOpen(false);
-                  setModal("cleaner");
+                  openCleanerModal();
                 }}
                 className="flex w-full items-center justify-center rounded-2xl bg-brand px-4 py-3.5 text-sm font-bold text-white"
               >
@@ -473,8 +478,10 @@ export default function SiteHeader() {
         </div>
       )}
 
-      {modal === "account" && <AccountModal onClose={() => setModal(null)} />}
-      {modal === "cleaner" && <CleanerApplyModal onClose={() => setModal(null)} />}
+      {accountModalOpen && (
+        <AccountModal onClose={closeAccountModal} onSuccess={login} />
+      )}
+      {cleanerModalOpen && <CleanerApplyModal onClose={closeCleanerModal} />}
     </>
   );
 }
