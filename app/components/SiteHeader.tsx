@@ -360,7 +360,7 @@ export default function SiteHeader() {
 
   return (
     <>
-      <header className="sticky top-0 z-50 border-b border-white/60 bg-panel/80 shadow-[0_8px_24px_rgba(17,24,39,0.04)] backdrop-blur-xl supports-[backdrop-filter]:bg-panel/70">
+      <header className="sticky top-0 z-50 border-b border-line/80 bg-panel/95 shadow-[0_8px_24px_rgba(17,24,39,0.06)] backdrop-blur-xl supports-[backdrop-filter]:bg-panel/90">
         <div className="mx-auto flex w-full max-w-6xl items-center gap-3 px-4 py-3 sm:px-6">
           <a href="#calculator" className="flex min-w-0 items-center gap-2.5">
             <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-brand text-sm font-bold text-white shadow-sm">
