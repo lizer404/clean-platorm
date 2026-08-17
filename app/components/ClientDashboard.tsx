@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "./AuthProvider";
+import GameHub from "./GameHub";
 import OrderChat from "./OrderChat";
 import {
   saveRepeatBooking,
@@ -137,6 +138,7 @@ export default function ClientDashboard() {
   const router = useRouter();
   const { isLoggedIn, authReady, userPhone, openAccountModal } = useAuth();
   const [now, setNow] = useState(() => Date.now());
+  const [view, setView] = useState<"orders" | "game">("orders");
   const [chatOrderId, setChatOrderId] = useState<string | null>(null);
   const [reviewOrderId, setReviewOrderId] = useState<string | null>(null);
   const [reviewText, setReviewText] = useState("");
@@ -193,6 +195,15 @@ export default function ClientDashboard() {
     );
   }
 
+  if (view === "game") {
+    return (
+      <GameHub
+        userPhone={userPhone}
+        onBackToOrders={() => setView("orders")}
+      />
+    );
+  }
+
   return (
     <div className="mx-auto w-full max-w-3xl animate-fade-up px-4 pb-16 pt-6 sm:px-6 sm:pt-8">
       <div className="mb-8 flex flex-col gap-3 sm:mb-10 sm:flex-row sm:items-end sm:justify-between">
@@ -204,12 +215,22 @@ export default function ClientDashboard() {
             Здравствуйте!
           </h1>
         </div>
-        <div className="inline-flex w-fit items-center gap-1.5 rounded-full bg-brand-soft px-3.5 py-2 text-sm font-semibold text-brand">
-          <span className="tabular-nums">5.0</span>
-          <span aria-hidden className="text-amber-500">
-            ★
-          </span>
-          <span className="text-xs font-medium text-muted">рейтинг</span>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setView("game")}
+            className="inline-flex items-center gap-1.5 rounded-full bg-[#fff1e4] px-3.5 py-2 text-sm font-semibold text-[#c4784a] ring-1 ring-[#f0ddc8] transition hover:bg-[#ffe8d2]"
+          >
+            <span aria-hidden>🎮</span>
+            Игровая зона
+          </button>
+          <div className="inline-flex w-fit items-center gap-1.5 rounded-full bg-brand-soft px-3.5 py-2 text-sm font-semibold text-brand">
+            <span className="tabular-nums">5.0</span>
+            <span aria-hidden className="text-amber-500">
+              ★
+            </span>
+            <span className="text-xs font-medium text-muted">рейтинг</span>
+          </div>
         </div>
       </div>
 
