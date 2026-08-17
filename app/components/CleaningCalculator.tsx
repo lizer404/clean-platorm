@@ -2,7 +2,9 @@
 
 import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { useAuth } from "./AuthProvider";
+import CleanerCalendar, { buildMockSlots } from "./CleanerCalendar";
 import OrderChat from "./OrderChat";
+import { consumeRepeatBooking } from "../lib/repeatBooking";
 
 type CleaningType = "maintenance" | "general" | "afterRepair";
 type ExtraId =
@@ -395,12 +397,21 @@ export default function CleaningCalculator() {
   const [showAddressStep, setShowAddressStep] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
   const [orderId, setOrderId] = useState("");
+  const [calendarOpen, setCalendarOpen] = useState(false);
+  const [calendarCleaner, setCalendarCleaner] = useState<{
+    id: string;
+    name: string;
+    initials: string;
+    accent: string;
+  } | null>(null);
+  const [slotNotice, setSlotNotice] = useState("");
 
   const { isAuthenticated, userPhone, openAccountModal } = useAuth();
 
   const typeRef = useRef<HTMLDivElement>(null);
   const sortRef = useRef<HTMLDivElement>(null);
   const cleanersRef = useRef<HTMLDivElement>(null);
+  const calendarRef = useRef<HTMLDivElement>(null);
 
   const selectedType = CLEANING_OPTIONS.find((item) => item.id === cleaningType)!;
   const selectedSort = SORT_OPTIONS.find((item) => item.id === sortMode)!;
@@ -447,6 +458,35 @@ export default function CleaningCalculator() {
     }
     document.addEventListener("mousedown", onDocClick);
     return () => document.removeEventListener("mousedown", onDocClick);
+  }, []);
+
+  useEffect(() => {
+    const draft = consumeRepeatBooking();
+    if (!draft) return;
+
+    setCleaningType(draft.cleaningType);
+    setRooms(draft.rooms);
+    setBaths(draft.baths);
+    setArea(draft.area);
+    setAreaInput(String(draft.area));
+    setExtras(new Set(draft.extras));
+    setCleanerCount(1);
+    setShowCleaners(true);
+    setSelectedCleanerIds([draft.cleanerId]);
+    setShowAddressStep(false);
+    setChatOpen(false);
+    setSlotNotice("");
+    setCalendarCleaner({
+      id: draft.cleanerId,
+      name: draft.cleanerName,
+      initials: draft.cleanerInitials,
+      accent: draft.cleanerAccent,
+    });
+    setCalendarOpen(true);
+
+    window.requestAnimationFrame(() => {
+      calendarRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
   }, []);
 
   function resetSelection() {
@@ -1006,6 +1046,30 @@ export default function CleaningCalculator() {
           )}
         </div>
       )}
+
+      {calendarOpen && calendarCleaner ? (
+        <div ref={calendarRef} id="cleaner-calendar" className="pt-1">
+          <CleanerCalendar
+            cleanerName={calendarCleaner.name}
+            cleanerInitials={calendarCleaner.initials}
+            cleanerAccent={calendarCleaner.accent}
+            slots={buildMockSlots(calendarCleaner.id)}
+            onClose={() => setCalendarOpen(false)}
+            onSelectSlot={(slot) => {
+              setSlotNotice(
+                `Слот забронирован у ${calendarCleaner.name}: ${slot.label}`,
+              );
+              setCalendarOpen(false);
+            }}
+          />
+        </div>
+      ) : null}
+
+      {slotNotice ? (
+        <p className="rounded-2xl bg-mint-soft px-4 py-3 text-sm font-semibold text-success">
+          {slotNotice}
+        </p>
+      ) : null}
 
       {chatOpen && (
         <div id="order-chat" className="pt-1">

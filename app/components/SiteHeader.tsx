@@ -935,24 +935,25 @@ export default function SiteHeader() {
                 <ChevronDownIcon />
               </button>
             ) : (
-              <button
-                type="button"
-                onClick={() => openAccountModal()}
-                className="inline-flex items-center gap-2 rounded-full bg-brand px-3.5 py-2 text-sm font-bold text-white shadow-sm transition hover:bg-brand-deep"
-              >
-                <ProfileIcon />
-                <span className="hidden sm:inline">Войти в аккаунт</span>
-                <span className="sm:hidden">Войти</span>
-              </button>
+              <>
+                <button
+                  type="button"
+                  onClick={() => openAccountModal()}
+                  className="inline-flex items-center gap-2 rounded-full bg-brand px-3.5 py-2 text-sm font-bold text-white shadow-sm transition hover:bg-brand-deep"
+                >
+                  <ProfileIcon />
+                  <span className="hidden sm:inline">Войти в аккаунт</span>
+                  <span className="sm:hidden">Войти</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={openCleanerModal}
+                  className="hidden rounded-full border border-line bg-transparent px-3 py-2 text-sm font-medium text-muted transition hover:border-slate-300 hover:bg-plaque hover:text-foreground sm:inline-flex"
+                >
+                  Стать клинером
+                </button>
+              </>
             )}
-
-            <button
-              type="button"
-              onClick={openCleanerModal}
-              className="hidden rounded-full border border-line bg-transparent px-3 py-2 text-sm font-medium text-muted transition hover:border-slate-300 hover:bg-plaque hover:text-foreground sm:inline-flex"
-            >
-              Стать клинером
-            </button>
 
             <button
               type="button"
@@ -1013,28 +1014,30 @@ export default function SiteHeader() {
                   <ChevronDownIcon />
                 </button>
               ) : (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setMenuOpen(false);
-                    openAccountModal();
-                  }}
-                  className="flex w-full items-center justify-center gap-2 rounded-2xl bg-brand px-4 py-3.5 text-sm font-bold text-white"
-                >
-                  <ProfileIcon />
-                  Войти в аккаунт
-                </button>
+                <>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMenuOpen(false);
+                      openAccountModal();
+                    }}
+                    className="flex w-full items-center justify-center gap-2 rounded-2xl bg-brand px-4 py-3.5 text-sm font-bold text-white"
+                  >
+                    <ProfileIcon />
+                    Войти в аккаунт
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMenuOpen(false);
+                      openCleanerModal();
+                    }}
+                    className="flex w-full items-center justify-center rounded-2xl border border-line bg-transparent px-4 py-3.5 text-sm font-medium text-muted transition hover:bg-plaque hover:text-foreground"
+                  >
+                    Стать клинером
+                  </button>
+                </>
               )}
-              <button
-                type="button"
-                onClick={() => {
-                  setMenuOpen(false);
-                  openCleanerModal();
-                }}
-                className="flex w-full items-center justify-center rounded-2xl border border-line bg-transparent px-4 py-3.5 text-sm font-medium text-muted transition hover:bg-plaque hover:text-foreground"
-              >
-                Стать клинером
-              </button>
             </div>
           </aside>
         </div>
