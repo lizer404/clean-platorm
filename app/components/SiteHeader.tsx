@@ -28,6 +28,14 @@ function ProfileIcon() {
   );
 }
 
+function ChevronDownIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M6 9l6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 function CloseIcon() {
   return (
     <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2">
@@ -838,7 +846,8 @@ function CleanerApplyModal({
 export default function SiteHeader() {
   const [menuOpen, setMenuOpen] = useState(false);
   const {
-    isAuthenticated,
+    isLoggedIn,
+    userPhone,
     login,
     accountModalOpen,
     openAccountModal,
@@ -895,18 +904,20 @@ export default function SiteHeader() {
           </nav>
 
           <div className="ml-auto flex min-w-0 items-center gap-1.5 sm:gap-2.5">
-            {isAuthenticated ? (
+            {isLoggedIn ? (
               <button
                 type="button"
                 onClick={() => openAccountModal()}
-                className="inline-flex items-center gap-2 rounded-full bg-brand px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-deep"
+                aria-label="Личный кабинет"
+                className="inline-flex max-w-[220px] items-center gap-2 rounded-full bg-brand px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-deep"
               >
-                <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-white/15">
+                <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white/15">
                   <ProfileIcon />
                 </span>
-                <span className="hidden max-w-[140px] truncate sm:inline">
-                  Мой профиль
+                <span className="truncate tabular-nums tracking-tight">
+                  {userPhone ?? "Личный кабинет"}
                 </span>
+                <ChevronDownIcon />
               </button>
             ) : (
               <button
@@ -976,7 +987,7 @@ export default function SiteHeader() {
             </nav>
 
             <div className="mt-auto space-y-2.5 pt-6">
-              {isAuthenticated ? (
+              {isLoggedIn ? (
                 <button
                   type="button"
                   onClick={() => {
@@ -986,7 +997,8 @@ export default function SiteHeader() {
                   className="flex w-full items-center justify-center gap-2 rounded-2xl bg-brand px-4 py-3.5 text-sm font-bold text-white"
                 >
                   <ProfileIcon />
-                  Мой профиль
+                  <span className="truncate tabular-nums">{userPhone ?? "Личный кабинет"}</span>
+                  <ChevronDownIcon />
                 </button>
               ) : (
                 <button
