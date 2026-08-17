@@ -237,6 +237,99 @@ function ConsentCheckbox({
   );
 }
 
+function SmsCodeInput({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (next: string) => void;
+}) {
+  return (
+    <input
+      type="text"
+      inputMode="numeric"
+      autoComplete="one-time-code"
+      maxLength={4}
+      value={value}
+      onChange={(event) =>
+        onChange(event.target.value.replace(/\D/g, "").slice(0, 4))
+      }
+      placeholder="••••"
+      className="w-full rounded-2xl bg-plaque px-4 py-4 text-center font-[family-name:var(--font-unbounded)] text-2xl font-semibold tracking-[0.35em] text-foreground outline-none ring-1 ring-transparent transition focus:bg-white focus:ring-mint/50"
+      aria-label="SMS-код"
+    />
+  );
+}
+
+function ResendTimer({
+  loading,
+  onResend,
+}: {
+  loading: boolean;
+  onResend: () => void;
+}) {
+  const [seconds, setSeconds] = useState(59);
+
+  useEffect(() => {
+    const startedAt = Date.now();
+    const id = window.setInterval(() => {
+      const left = Math.max(0, 59 - Math.floor((Date.now() - startedAt) / 1000));
+      setSeconds(left);
+      if (left === 0) window.clearInterval(id);
+    }, 250);
+    return () => window.clearInterval(id);
+  }, []);
+
+  if (seconds > 0) {
+    return (
+      <p className="text-center text-sm text-muted">
+        Отправить код повторно через {seconds} сек
+      </p>
+    );
+  }
+
+  return (
+    <p className="text-center text-sm text-muted">
+      <button
+        type="button"
+        disabled={loading}
+        onClick={onResend}
+        className="font-semibold text-brand hover:underline disabled:opacity-50"
+      >
+        Отправить код повторно
+      </button>
+    </p>
+  );
+}
+
+async function sendSmsCode(phone: string) {
+  const response = await fetch("/api/auth/send-sms", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ phone }),
+  });
+  const data = (await response.json()) as { ok?: boolean; error?: string };
+  if (!response.ok || !data.ok) {
+    throw new Error(data.error || "Не удалось отправить код");
+  }
+}
+
+async function verifySmsCode(phone: string, code: string) {
+  const response = await fetch("/api/auth/verify-sms", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ phone, code }),
+  });
+  const data = (await response.json()) as {
+    ok?: boolean;
+    authorized?: boolean;
+    error?: string;
+  };
+  if (!response.ok || !data.ok || !data.authorized) {
+    throw new Error(data.error || "Неверный код");
+  }
+}
+
 function AccountModal({
   onClose,
   onSuccess,
@@ -244,155 +337,304 @@ function AccountModal({
   onClose: () => void;
   onSuccess: (phone: string) => void;
 }) {
+  const [step, setStep] = useState<1 | 2>(1);
   const [phone, setPhone] = useState(PHONE_PREFIX);
   const [agreed, setAgreed] = useState(false);
+  const [code, setCode] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [timerKey, setTimerKey] = useState(0);
 
-  function onSubmit(event: FormEvent) {
+  async function requestCode() {
+    setLoading(true);
+    setError("");
+    try {
+      await sendSmsCode(phone.trim());
+      setStep(2);
+      setCode("");
+      setTimerKey((value) => value + 1);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Ошибка отправки");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function onPhoneSubmit(event: FormEvent) {
     event.preventDefault();
-    if (!agreed || extractLocalDigits(phone).length < 9) return;
-    onSuccess(phone.trim());
+    if (!agreed || extractLocalDigits(phone).length < 9 || loading) return;
+    await requestCode();
+  }
+
+  async function onCodeSubmit(event: FormEvent) {
+    event.preventDefault();
+    if (code.length !== 4 || loading) return;
+    setLoading(true);
+    setError("");
+    try {
+      await verifySmsCode(phone.trim(), code);
+      onSuccess(phone.trim());
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Ошибка проверки");
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
     <ModalShell
-      title="Личный кабинет"
-      subtitle="Войдите по номеру телефона — пришлём код подтверждения."
+      title={step === 1 ? "Личный кабинет" : "Ввод СМС-кода"}
+      subtitle={
+        step === 1
+          ? "Войдите по номеру телефона — пришлём код подтверждения."
+          : `Код отправлен на ${phone.trim()}. Для теста введите 1234.`
+      }
       onClose={onClose}
     >
-      <form onSubmit={onSubmit} className="space-y-4">
-        <label className="block space-y-2">
-          <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted">
-            Телефон
-          </span>
-          <BelarusPhoneInput value={phone} onChange={setPhone} />
-        </label>
+      {step === 1 ? (
+        <form onSubmit={onPhoneSubmit} className="animate-sheet space-y-4">
+          <label className="block space-y-2">
+            <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted">
+              Телефон
+            </span>
+            <BelarusPhoneInput value={phone} onChange={setPhone} />
+          </label>
 
-        <ConsentCheckbox
-          id="account-privacy-consent"
-          checked={agreed}
-          onChange={setAgreed}
-        />
+          <ConsentCheckbox
+            id="account-privacy-consent"
+            checked={agreed}
+            onChange={setAgreed}
+          />
 
-        <button
-          type="submit"
-          disabled={!agreed}
-          className="flex min-h-12 w-full items-center justify-center rounded-2xl bg-brand px-4 py-3.5 text-sm font-bold uppercase tracking-[0.04em] text-white transition hover:bg-brand-deep disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none"
-        >
-          Получить код
-        </button>
-        <p className="text-center text-xs text-muted">
-          После подтверждения номера вы сможете выбрать исполнителей и открыть чат заказа.
-        </p>
-      </form>
+          {error ? (
+            <p className="text-center text-sm font-medium text-red-500">{error}</p>
+          ) : null}
+
+          <button
+            type="submit"
+            disabled={!agreed || loading}
+            className="flex min-h-12 w-full items-center justify-center rounded-2xl bg-brand px-4 py-3.5 text-sm font-bold uppercase tracking-[0.04em] text-white transition hover:bg-brand-deep disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none"
+          >
+            {loading ? "Отправляем…" : "Получить код"}
+          </button>
+        </form>
+      ) : (
+        <form onSubmit={onCodeSubmit} className="animate-sheet space-y-4">
+          <label className="block space-y-2">
+            <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted">
+              Код из СМС
+            </span>
+            <SmsCodeInput value={code} onChange={setCode} />
+          </label>
+
+          <ResendTimer
+            key={timerKey}
+            loading={loading}
+            onResend={requestCode}
+          />
+
+          {error ? (
+            <p className="text-center text-sm font-medium text-red-500">{error}</p>
+          ) : null}
+
+          <button
+            type="submit"
+            disabled={code.length !== 4 || loading}
+            className="flex min-h-12 w-full items-center justify-center rounded-2xl bg-brand px-4 py-3.5 text-sm font-bold uppercase tracking-[0.04em] text-white transition hover:bg-brand-deep disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none"
+          >
+            {loading ? "Проверяем…" : "Войти"}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setStep(1);
+              setCode("");
+              setError("");
+            }}
+            className="w-full text-center text-sm font-medium text-muted hover:text-foreground"
+          >
+            Изменить номер
+          </button>
+        </form>
+      )}
     </ModalShell>
   );
 }
 
-function CleanerApplyModal({ onClose }: { onClose: () => void }) {
+function CleanerApplyModal({
+  onClose,
+  onSuccess,
+}: {
+  onClose: () => void;
+  onSuccess: (phone: string) => void;
+}) {
+  const [step, setStep] = useState<1 | 2>(1);
   const [name, setName] = useState("");
   const [phone, setPhone] = useState(PHONE_PREFIX);
   const [experience, setExperience] = useState("");
   const [unp, setUnp] = useState("");
   const [agreed, setAgreed] = useState(false);
-  const [sent, setSent] = useState(false);
+  const [code, setCode] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [timerKey, setTimerKey] = useState(0);
 
-  function onSubmit(event: FormEvent) {
+  async function requestCode() {
+    setLoading(true);
+    setError("");
+    try {
+      await sendSmsCode(phone.trim());
+      setStep(2);
+      setCode("");
+      setTimerKey((value) => value + 1);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Ошибка отправки");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function onDetailsSubmit(event: FormEvent) {
     event.preventDefault();
-    if (!agreed || extractLocalDigits(phone).length < 9) return;
-    setSent(true);
+    if (!agreed || extractLocalDigits(phone).length < 9 || loading) return;
+    await requestCode();
+  }
+
+  async function onCodeSubmit(event: FormEvent) {
+    event.preventDefault();
+    if (code.length !== 4 || loading) return;
+    setLoading(true);
+    setError("");
+    try {
+      await verifySmsCode(phone.trim(), code);
+      onSuccess(phone.trim());
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Ошибка проверки");
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
     <ModalShell
-      title="Стать клинером"
-      subtitle="Оставьте заявку — мы свяжемся и расскажем об условиях."
+      title={step === 1 ? "Стать клинером" : "Ввод СМС-кода"}
+      subtitle={
+        step === 1
+          ? "Оставьте заявку — подтвердим телефон и свяжемся с вами."
+          : `Код отправлен на ${phone.trim()}. Для теста введите 1234.`
+      }
       onClose={onClose}
     >
-      <form onSubmit={onSubmit} className="space-y-3.5">
-        <label className="block space-y-2">
-          <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted">
-            Имя
-          </span>
-          <input
-            type="text"
-            required
-            value={name}
-            onChange={(event) => {
-              setName(event.target.value);
-              setSent(false);
-            }}
-            placeholder="Как к вам обращаться"
-            className="w-full rounded-2xl bg-plaque px-4 py-3.5 text-[15px] font-medium text-foreground outline-none ring-1 ring-transparent transition focus:bg-white focus:ring-mint/50"
-          />
-        </label>
-        <label className="block space-y-2">
-          <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted">
-            Телефон
-          </span>
-          <BelarusPhoneInput
-            value={phone}
-            onChange={(next) => {
-              setPhone(next);
-              setSent(false);
-            }}
-          />
-        </label>
-        <label className="block space-y-2">
-          <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted">
-            Опыт работы
-          </span>
-          <textarea
-            required
-            rows={5}
-            value={experience}
-            onChange={(event) => {
-              setExperience(event.target.value);
-              setSent(false);
-            }}
-            placeholder="Сколько лет в клининге, какие объекты, какая химия, какие расходники, каков планируемый график работы?"
-            className="w-full resize-none rounded-2xl bg-plaque px-4 py-3.5 text-[15px] font-medium leading-relaxed text-foreground outline-none ring-1 ring-transparent transition focus:bg-white focus:ring-mint/50"
-          />
-        </label>
-        <label className="block space-y-2">
-          <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted">
-            УНП
-          </span>
-          <input
-            type="text"
-            required
-            inputMode="numeric"
-            value={unp}
-            onChange={(event) => {
-              setUnp(event.target.value.replace(/[^\d]/g, "").slice(0, 9));
-              setSent(false);
-            }}
-            placeholder="9 цифр"
-            className="w-full rounded-2xl bg-plaque px-4 py-3.5 text-[15px] font-medium text-foreground outline-none ring-1 ring-transparent transition focus:bg-white focus:ring-mint/50"
-          />
-        </label>
+      {step === 1 ? (
+        <form onSubmit={onDetailsSubmit} className="animate-sheet space-y-3.5">
+          <label className="block space-y-2">
+            <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted">
+              Имя
+            </span>
+            <input
+              type="text"
+              required
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              placeholder="Как к вам обращаться"
+              className="w-full rounded-2xl bg-plaque px-4 py-3.5 text-[15px] font-medium text-foreground outline-none ring-1 ring-transparent transition focus:bg-white focus:ring-mint/50"
+            />
+          </label>
+          <label className="block space-y-2">
+            <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted">
+              Телефон
+            </span>
+            <BelarusPhoneInput value={phone} onChange={setPhone} />
+          </label>
+          <label className="block space-y-2">
+            <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted">
+              Опыт работы
+            </span>
+            <textarea
+              required
+              rows={5}
+              value={experience}
+              onChange={(event) => setExperience(event.target.value)}
+              placeholder="Сколько лет в клининге, какие объекты, какая химия, какие расходники, каков планируемый график работы?"
+              className="w-full resize-none rounded-2xl bg-plaque px-4 py-3.5 text-[15px] font-medium leading-relaxed text-foreground outline-none ring-1 ring-transparent transition focus:bg-white focus:ring-mint/50"
+            />
+          </label>
+          <label className="block space-y-2">
+            <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted">
+              УНП
+            </span>
+            <input
+              type="text"
+              required
+              inputMode="numeric"
+              value={unp}
+              onChange={(event) =>
+                setUnp(event.target.value.replace(/[^\d]/g, "").slice(0, 9))
+              }
+              placeholder="9 цифр"
+              className="w-full rounded-2xl bg-plaque px-4 py-3.5 text-[15px] font-medium text-foreground outline-none ring-1 ring-transparent transition focus:bg-white focus:ring-mint/50"
+            />
+          </label>
 
-        <ConsentCheckbox
-          id="cleaner-privacy-consent"
-          checked={agreed}
-          onChange={(next) => {
-            setAgreed(next);
-            setSent(false);
-          }}
-        />
+          <ConsentCheckbox
+            id="cleaner-privacy-consent"
+            checked={agreed}
+            onChange={setAgreed}
+          />
 
-        <button
-          type="submit"
-          disabled={!agreed}
-          className="flex min-h-12 w-full items-center justify-center rounded-2xl bg-brand px-4 py-3.5 text-sm font-bold uppercase tracking-[0.04em] text-white transition hover:bg-brand-deep disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none"
-        >
-          Отправить заявку
-        </button>
-        {sent && (
-          <p className="text-center text-sm font-medium text-success" role="status">
-            Заявка отправлена! Мы свяжемся с вами в ближайшее время.
-          </p>
-        )}
-      </form>
+          {error ? (
+            <p className="text-center text-sm font-medium text-red-500">{error}</p>
+          ) : null}
+
+          <button
+            type="submit"
+            disabled={!agreed || loading}
+            className="flex min-h-12 w-full items-center justify-center rounded-2xl bg-brand px-4 py-3.5 text-sm font-bold uppercase tracking-[0.04em] text-white transition hover:bg-brand-deep disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none"
+          >
+            {loading ? "Отправляем…" : "Получить код"}
+          </button>
+        </form>
+      ) : (
+        <form onSubmit={onCodeSubmit} className="animate-sheet space-y-4">
+          <label className="block space-y-2">
+            <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted">
+              Код из СМС
+            </span>
+            <SmsCodeInput value={code} onChange={setCode} />
+          </label>
+
+          <ResendTimer
+            key={timerKey}
+            loading={loading}
+            onResend={requestCode}
+          />
+
+          {error ? (
+            <p className="text-center text-sm font-medium text-red-500">{error}</p>
+          ) : null}
+
+          <button
+            type="submit"
+            disabled={code.length !== 4 || loading}
+            className="flex min-h-12 w-full items-center justify-center rounded-2xl bg-brand px-4 py-3.5 text-sm font-bold uppercase tracking-[0.04em] text-white transition hover:bg-brand-deep disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none"
+          >
+            {loading ? "Проверяем…" : "Подтвердить и отправить заявку"}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setStep(1);
+              setCode("");
+              setError("");
+            }}
+            className="w-full text-center text-sm font-medium text-muted hover:text-foreground"
+          >
+            Назад к заявке
+          </button>
+        </form>
+      )}
     </ModalShell>
   );
 }
@@ -454,23 +696,41 @@ export default function SiteHeader() {
           </nav>
 
           <div className="ml-auto flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => openAccountModal()}
-              className="inline-flex items-center gap-2 rounded-full bg-plaque px-3 py-2 text-sm font-semibold text-foreground transition hover:bg-line"
-            >
-              <ProfileIcon />
-              <span className="hidden max-w-[140px] truncate sm:inline">
-                {isAuthenticated && userPhone ? userPhone : "Личный кабинет"}
-              </span>
-            </button>
-            <button
-              type="button"
-              onClick={openCleanerModal}
-              className="hidden rounded-full bg-brand px-3.5 py-2 text-sm font-bold text-white shadow-sm transition hover:bg-brand-deep sm:inline-flex"
-            >
-              Стать клинером
-            </button>
+            {isAuthenticated ? (
+              <button
+                type="button"
+                onClick={() => openAccountModal()}
+                className="inline-flex items-center gap-2 rounded-full bg-brand-soft px-3 py-2 text-sm font-semibold text-brand transition hover:bg-line"
+              >
+                <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-brand text-white">
+                  <ProfileIcon />
+                </span>
+                <span className="hidden max-w-[160px] truncate sm:inline">
+                  Мой профиль
+                </span>
+                <span className="hidden text-xs font-medium text-muted md:inline">
+                  {userPhone}
+                </span>
+              </button>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  onClick={() => openAccountModal()}
+                  className="inline-flex items-center gap-2 rounded-full bg-plaque px-3 py-2 text-sm font-semibold text-foreground transition hover:bg-line"
+                >
+                  <ProfileIcon />
+                  <span className="hidden sm:inline">Личный кабинет</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={openCleanerModal}
+                  className="hidden rounded-full bg-brand px-3.5 py-2 text-sm font-bold text-white shadow-sm transition hover:bg-brand-deep sm:inline-flex"
+                >
+                  Стать клинером
+                </button>
+              </>
+            )}
             <button
               type="button"
               aria-label="Открыть меню"
@@ -519,27 +779,43 @@ export default function SiteHeader() {
             </nav>
 
             <div className="mt-auto space-y-2.5 pt-6">
-              <button
-                type="button"
-                onClick={() => {
-                  setMenuOpen(false);
-                  openAccountModal();
-                }}
-                className="flex w-full items-center justify-center gap-2 rounded-2xl bg-plaque px-4 py-3.5 text-sm font-bold text-foreground"
-              >
-                <ProfileIcon />
-                Личный кабинет
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setMenuOpen(false);
-                  openCleanerModal();
-                }}
-                className="flex w-full items-center justify-center rounded-2xl bg-brand px-4 py-3.5 text-sm font-bold text-white"
-              >
-                Стать клинером
-              </button>
+              {isAuthenticated ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMenuOpen(false);
+                    openAccountModal();
+                  }}
+                  className="flex w-full items-center justify-center gap-2 rounded-2xl bg-brand-soft px-4 py-3.5 text-sm font-bold text-brand"
+                >
+                  <ProfileIcon />
+                  Мой профиль
+                </button>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMenuOpen(false);
+                      openAccountModal();
+                    }}
+                    className="flex w-full items-center justify-center gap-2 rounded-2xl bg-plaque px-4 py-3.5 text-sm font-bold text-foreground"
+                  >
+                    <ProfileIcon />
+                    Личный кабинет
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMenuOpen(false);
+                      openCleanerModal();
+                    }}
+                    className="flex w-full items-center justify-center rounded-2xl bg-brand px-4 py-3.5 text-sm font-bold text-white"
+                  >
+                    Стать клинером
+                  </button>
+                </>
+              )}
             </div>
           </aside>
         </div>
@@ -548,7 +824,9 @@ export default function SiteHeader() {
       {accountModalOpen && (
         <AccountModal onClose={closeAccountModal} onSuccess={login} />
       )}
-      {cleanerModalOpen && <CleanerApplyModal onClose={closeCleanerModal} />}
+      {cleanerModalOpen && (
+        <CleanerApplyModal onClose={closeCleanerModal} onSuccess={login} />
+      )}
     </>
   );
 }

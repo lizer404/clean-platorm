@@ -12,6 +12,7 @@ import {
 
 type AuthContextValue = {
   isAuthenticated: boolean;
+  isLoggedIn: boolean;
   userPhone: string | null;
   login: (phone: string) => void;
   logout: () => void;
@@ -62,6 +63,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const value = useMemo(
     () => ({
       isAuthenticated,
+      isLoggedIn: isAuthenticated,
       userPhone,
       login,
       logout,
