@@ -42,6 +42,21 @@ function MenuIcon() {
   );
 }
 
+function PhoneIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.9">
+      <path
+        d="M8.2 4.8c.4-.4 1-.5 1.5-.3l1.8.7c.6.2 1 .8.9 1.4l-.3 1.7a1.2 1.2 0 0 1-.7 1l-1 .4a11.5 11.5 0 0 0 5.4 5.4l.4-1c.2-.4.7-.7 1.1-.7l1.7-.3c.6-.1 1.2.3 1.4.9l.7 1.8c.2.5.1 1.1-.3 1.5l-1 1.1c-.4.4-1 .6-1.6.5C10.8 19.6 4.4 13.2 3.2 6.4c-.1-.6.1-1.2.5-1.6l1-1z"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+const CONTACT_PHONE = "+375 29 000-00-00";
+const CONTACT_PHONE_HREF = "tel:+375290000000";
+const LEGAL_STUB = "ИП Фамилия И.О. УНП 123456789";
+
 function extractLocalDigits(value: string) {
   let digits = value.replace(/\D/g, "");
   if (digits.startsWith("375")) digits = digits.slice(3);
@@ -236,6 +251,8 @@ function ConsentCheckbox({
   );
 }
 
+type AuthMethod = "telegram" | "sms";
+
 function OtpCodeInput({
   value,
   onChange,
@@ -257,6 +274,17 @@ function OtpCodeInput({
     el?.focus();
     el?.select();
   }
+
+  useEffect(() => {
+    if (disabled) return;
+    const id = window.requestAnimationFrame(() => focusIndex(0));
+    return () => window.cancelAnimationFrame(id);
+  }, [disabled]);
+
+  useEffect(() => {
+    if (disabled || value.length > 0) return;
+    focusIndex(0);
+  }, [disabled, value]);
 
   function applyDigits(nextRaw: string, startIndex = 0) {
     const incoming = nextRaw.replace(/\D/g, "");
@@ -295,6 +323,7 @@ function OtpCodeInput({
           type="text"
           inputMode="numeric"
           autoComplete={index === 0 ? "one-time-code" : "off"}
+          autoFocus={index === 0}
           maxLength={1}
           value={digit}
           disabled={disabled}
@@ -353,6 +382,37 @@ function OtpCodeInput({
   );
 }
 
+function AuthSendActions({
+  canSend,
+  loading,
+  onSend,
+}: {
+  canSend: boolean;
+  loading: boolean;
+  onSend: (method: AuthMethod) => void;
+}) {
+  return (
+    <div className="space-y-2.5">
+      <button
+        type="button"
+        disabled={!canSend}
+        onClick={() => onSend("telegram")}
+        className="flex min-h-[52px] w-full items-center justify-center rounded-2xl bg-[#229ED9] px-4 py-3.5 text-[15px] font-bold text-white shadow-[0_8px_20px_rgba(34,158,217,0.28)] transition hover:brightness-95 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none"
+      >
+        {loading ? "Отправляем…" : "Получить код в Telegram"}
+      </button>
+      <button
+        type="button"
+        disabled={!canSend}
+        onClick={() => onSend("sms")}
+        className="mx-auto block text-center text-sm font-medium text-muted underline-offset-2 transition hover:text-foreground hover:underline disabled:cursor-not-allowed disabled:no-underline disabled:opacity-50"
+      >
+        {loading ? "Отправляем…" : "Получить код по СМС"}
+      </button>
+    </div>
+  );
+}
+
 function ResendTimer({
   loading,
   onResend,
@@ -395,8 +455,6 @@ function ResendTimer({
     </button>
   );
 }
-
-type AuthMethod = "telegram" | "sms";
 
 async function sendAuthCode(phone: string, method: AuthMethod) {
   const response = await fetch("/api/auth/send", {
@@ -521,24 +579,11 @@ function AccountModal({
             <p className="text-center text-sm font-medium text-red-500">{error}</p>
           ) : null}
 
-          <div className="grid gap-2.5 sm:grid-cols-2">
-            <button
-              type="button"
-              disabled={!canSend}
-              onClick={() => requestCode("telegram")}
-              className="flex min-h-12 items-center justify-center rounded-2xl bg-[#229ED9] px-4 py-3.5 text-sm font-bold text-white transition hover:brightness-95 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none"
-            >
-              {loading ? "Отправляем…" : "Получить код в Telegram"}
-            </button>
-            <button
-              type="button"
-              disabled={!canSend}
-              onClick={() => requestCode("sms")}
-              className="flex min-h-12 items-center justify-center rounded-2xl bg-brand px-4 py-3.5 text-sm font-bold uppercase tracking-[0.04em] text-white transition hover:bg-brand-deep disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none"
-            >
-              {loading ? "Отправляем…" : "СМС"}
-            </button>
-          </div>
+          <AuthSendActions
+            canSend={canSend}
+            loading={loading}
+            onSend={requestCode}
+          />
         </div>
       ) : (
         <div className="animate-sheet space-y-4">
@@ -740,24 +785,11 @@ function CleanerApplyModal({
             <p className="text-center text-sm font-medium text-red-500">{error}</p>
           ) : null}
 
-          <div className="grid gap-2.5 sm:grid-cols-2">
-            <button
-              type="button"
-              disabled={!canSend}
-              onClick={() => requestCode("telegram")}
-              className="flex min-h-12 items-center justify-center rounded-2xl bg-[#229ED9] px-4 py-3.5 text-sm font-bold text-white transition hover:brightness-95 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none"
-            >
-              {loading ? "Отправляем…" : "Получить код в Telegram"}
-            </button>
-            <button
-              type="button"
-              disabled={!canSend}
-              onClick={() => requestCode("sms")}
-              className="flex min-h-12 items-center justify-center rounded-2xl bg-brand px-4 py-3.5 text-sm font-bold uppercase tracking-[0.04em] text-white transition hover:bg-brand-deep disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none"
-            >
-              {loading ? "Отправляем…" : "СМС"}
-            </button>
-          </div>
+          <AuthSendActions
+            canSend={canSend}
+            loading={loading}
+            onSend={requestCode}
+          />
         </div>
       ) : (
         <div className="animate-sheet space-y-4">
@@ -814,7 +846,6 @@ export default function SiteHeader() {
   const [menuOpen, setMenuOpen] = useState(false);
   const {
     isAuthenticated,
-    userPhone,
     login,
     accountModalOpen,
     openAccountModal,
@@ -844,8 +875,8 @@ export default function SiteHeader() {
   return (
     <>
       <header className="sticky top-0 z-[100] border-b border-line/70 bg-white/90 shadow-[0_8px_24px_rgba(17,24,39,0.05)] backdrop-blur-md">
-        <div className="mx-auto flex w-full max-w-6xl items-center gap-3 px-4 py-3 sm:px-6">
-          <a href="#calculator" className="flex min-w-0 items-center gap-2.5">
+        <div className="mx-auto flex w-full max-w-6xl items-center gap-2 px-4 py-3 sm:gap-3 sm:px-6">
+          <a href="#calculator" className="flex min-w-0 shrink-0 items-center gap-2.5">
             <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-brand text-sm font-bold text-white shadow-sm">
               C
             </span>
@@ -854,59 +885,69 @@ export default function SiteHeader() {
             </span>
           </a>
 
-          <nav className="ml-4 hidden items-center gap-1 lg:flex">
+          <nav className="ml-2 hidden items-center gap-0.5 xl:flex">
             {NAV_LINKS.map((link) => (
               <a
                 key={link.href}
                 href={link.href}
-                className="rounded-full px-3 py-2 text-sm font-medium text-muted transition hover:bg-plaque hover:text-foreground"
+                className="rounded-full px-2.5 py-2 text-sm font-medium text-muted transition hover:bg-plaque hover:text-foreground"
               >
                 {link.label}
               </a>
             ))}
           </nav>
 
-          <div className="ml-auto flex items-center gap-2">
+          <div className="ml-auto flex min-w-0 items-center gap-1.5 sm:gap-2.5">
+            <div className="mr-1 hidden min-w-0 flex-col items-end lg:flex">
+              <a
+                href={CONTACT_PHONE_HREF}
+                className="inline-flex items-center gap-1.5 text-sm font-semibold text-foreground transition hover:text-brand"
+              >
+                <PhoneIcon />
+                <span className="whitespace-nowrap">{CONTACT_PHONE}</span>
+              </a>
+              <p className="max-w-[200px] truncate text-[10px] leading-tight text-muted xl:max-w-none">
+                {LEGAL_STUB}
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={openCleanerModal}
+              className="hidden rounded-full border border-line bg-transparent px-3 py-2 text-sm font-medium text-muted transition hover:border-slate-300 hover:bg-plaque hover:text-foreground sm:inline-flex"
+            >
+              Стать клинером
+            </button>
+
             {isAuthenticated ? (
               <button
                 type="button"
                 onClick={() => openAccountModal()}
-                className="inline-flex items-center gap-2 rounded-full bg-brand-soft px-3 py-2 text-sm font-semibold text-brand transition hover:bg-line"
+                className="inline-flex items-center gap-2 rounded-full bg-brand px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-deep"
               >
-                <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-brand text-white">
+                <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-white/15">
                   <ProfileIcon />
                 </span>
-                <span className="hidden max-w-[160px] truncate sm:inline">
+                <span className="hidden max-w-[140px] truncate sm:inline">
                   Мой профиль
-                </span>
-                <span className="hidden text-xs font-medium text-muted md:inline">
-                  {userPhone}
                 </span>
               </button>
             ) : (
-              <>
-                <button
-                  type="button"
-                  onClick={() => openAccountModal()}
-                  className="inline-flex items-center gap-2 rounded-full bg-plaque px-3 py-2 text-sm font-semibold text-foreground transition hover:bg-line"
-                >
-                  <ProfileIcon />
-                  <span className="hidden sm:inline">Личный кабинет</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={openCleanerModal}
-                  className="hidden rounded-full bg-brand px-3.5 py-2 text-sm font-bold text-white shadow-sm transition hover:bg-brand-deep sm:inline-flex"
-                >
-                  Стать клинером
-                </button>
-              </>
+              <button
+                type="button"
+                onClick={() => openAccountModal()}
+                className="inline-flex items-center gap-2 rounded-full bg-brand px-3.5 py-2 text-sm font-bold text-white shadow-sm transition hover:bg-brand-deep"
+              >
+                <ProfileIcon />
+                Вход
+              </button>
             )}
+
             <button
               type="button"
               aria-label="Открыть меню"
               onClick={() => setMenuOpen(true)}
-              className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-plaque text-foreground lg:hidden"
+              className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-plaque text-foreground xl:hidden"
             >
               <MenuIcon />
             </button>
@@ -915,7 +956,7 @@ export default function SiteHeader() {
       </header>
 
       {menuOpen && (
-        <div className="fixed inset-0 z-[105] lg:hidden">
+        <div className="fixed inset-0 z-[105] xl:hidden">
           <button
             type="button"
             aria-label="Закрыть меню"
@@ -949,6 +990,17 @@ export default function SiteHeader() {
               ))}
             </nav>
 
+            <div className="mt-5 rounded-2xl bg-plaque px-4 py-3.5">
+              <a
+                href={CONTACT_PHONE_HREF}
+                className="inline-flex items-center gap-2 text-sm font-semibold text-foreground"
+              >
+                <PhoneIcon />
+                {CONTACT_PHONE}
+              </a>
+              <p className="mt-1.5 text-xs leading-snug text-muted">{LEGAL_STUB}</p>
+            </div>
+
             <div className="mt-auto space-y-2.5 pt-6">
               {isAuthenticated ? (
                 <button
@@ -957,36 +1009,34 @@ export default function SiteHeader() {
                     setMenuOpen(false);
                     openAccountModal();
                   }}
-                  className="flex w-full items-center justify-center gap-2 rounded-2xl bg-brand-soft px-4 py-3.5 text-sm font-bold text-brand"
+                  className="flex w-full items-center justify-center gap-2 rounded-2xl bg-brand px-4 py-3.5 text-sm font-bold text-white"
                 >
                   <ProfileIcon />
                   Мой профиль
                 </button>
               ) : (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setMenuOpen(false);
-                      openAccountModal();
-                    }}
-                    className="flex w-full items-center justify-center gap-2 rounded-2xl bg-plaque px-4 py-3.5 text-sm font-bold text-foreground"
-                  >
-                    <ProfileIcon />
-                    Личный кабинет
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setMenuOpen(false);
-                      openCleanerModal();
-                    }}
-                    className="flex w-full items-center justify-center rounded-2xl bg-brand px-4 py-3.5 text-sm font-bold text-white"
-                  >
-                    Стать клинером
-                  </button>
-                </>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMenuOpen(false);
+                    openAccountModal();
+                  }}
+                  className="flex w-full items-center justify-center gap-2 rounded-2xl bg-brand px-4 py-3.5 text-sm font-bold text-white"
+                >
+                  <ProfileIcon />
+                  Вход / Личный кабинет
+                </button>
               )}
+              <button
+                type="button"
+                onClick={() => {
+                  setMenuOpen(false);
+                  openCleanerModal();
+                }}
+                className="flex w-full items-center justify-center rounded-2xl border border-line bg-transparent px-4 py-3.5 text-sm font-medium text-muted transition hover:bg-plaque hover:text-foreground"
+              >
+                Стать клинером
+              </button>
             </div>
           </aside>
         </div>
