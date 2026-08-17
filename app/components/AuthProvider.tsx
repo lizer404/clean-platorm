@@ -37,6 +37,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setIsAuthenticated(true);
     setUserPhone(phone);
     setAccountModalOpen(false);
+    setCleanerModalOpen(false);
     const next = onLoginSuccessRef.current;
     onLoginSuccessRef.current = null;
     next?.();

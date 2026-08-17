@@ -5,7 +5,6 @@ import {
   useId,
   useRef,
   useState,
-  type FormEvent,
   type ReactNode,
 } from "react";
 import { useAuth } from "./AuthProvider";
@@ -237,27 +236,120 @@ function ConsentCheckbox({
   );
 }
 
-function SmsCodeInput({
+function OtpCodeInput({
   value,
   onChange,
+  onComplete,
+  disabled,
+  hasError,
 }: {
   value: string;
   onChange: (next: string) => void;
+  onComplete: (code: string) => void;
+  disabled?: boolean;
+  hasError?: boolean;
 }) {
+  const inputsRef = useRef<Array<HTMLInputElement | null>>([null, null, null, null]);
+  const digits = Array.from({ length: 4 }, (_, i) => value[i] ?? "");
+
+  function focusIndex(index: number) {
+    const el = inputsRef.current[Math.max(0, Math.min(3, index))];
+    el?.focus();
+    el?.select();
+  }
+
+  function applyDigits(nextRaw: string, startIndex = 0) {
+    const incoming = nextRaw.replace(/\D/g, "");
+    if (!incoming) return;
+
+    const next = digits.slice();
+    let cursor = startIndex;
+    for (const ch of incoming) {
+      if (cursor > 3) break;
+      next[cursor] = ch;
+      cursor += 1;
+    }
+    const joined = next.join("").slice(0, 4);
+    onChange(joined);
+
+    if (joined.length === 4) {
+      focusIndex(3);
+      onComplete(joined);
+      return;
+    }
+    focusIndex(Math.min(cursor, 3));
+  }
+
   return (
-    <input
-      type="text"
-      inputMode="numeric"
-      autoComplete="one-time-code"
-      maxLength={4}
-      value={value}
-      onChange={(event) =>
-        onChange(event.target.value.replace(/\D/g, "").slice(0, 4))
-      }
-      placeholder="••••"
-      className="w-full rounded-2xl bg-plaque px-4 py-4 text-center font-[family-name:var(--font-unbounded)] text-2xl font-semibold tracking-[0.35em] text-foreground outline-none ring-1 ring-transparent transition focus:bg-white focus:ring-mint/50"
-      aria-label="SMS-код"
-    />
+    <div
+      className={`flex justify-center gap-2.5 sm:gap-3 ${hasError ? "animate-otp-shake" : ""}`}
+      role="group"
+      aria-label="Код подтверждения"
+    >
+      {digits.map((digit, index) => (
+        <input
+          key={index}
+          ref={(el) => {
+            inputsRef.current[index] = el;
+          }}
+          type="text"
+          inputMode="numeric"
+          autoComplete={index === 0 ? "one-time-code" : "off"}
+          maxLength={1}
+          value={digit}
+          disabled={disabled}
+          aria-invalid={hasError || undefined}
+          aria-label={`Цифра ${index + 1}`}
+          onChange={(event) => {
+            const raw = event.target.value.replace(/\D/g, "");
+            if (!raw) {
+              const next = digits.slice();
+              next[index] = "";
+              onChange(next.join(""));
+              return;
+            }
+            applyDigits(raw, index);
+          }}
+          onKeyDown={(event) => {
+            if (event.key === "Backspace") {
+              event.preventDefault();
+              if (digits[index]) {
+                const next = digits.slice();
+                next[index] = "";
+                onChange(next.join(""));
+                return;
+              }
+              if (index > 0) {
+                const next = digits.slice();
+                next[index - 1] = "";
+                onChange(next.join(""));
+                focusIndex(index - 1);
+              }
+              return;
+            }
+
+            if (event.key === "ArrowLeft" && index > 0) {
+              event.preventDefault();
+              focusIndex(index - 1);
+            }
+            if (event.key === "ArrowRight" && index < 3) {
+              event.preventDefault();
+              focusIndex(index + 1);
+            }
+          }}
+          onPaste={(event) => {
+            event.preventDefault();
+            applyDigits(event.clipboardData.getData("text"), index);
+          }}
+          onFocus={(event) => event.target.select()}
+          className={`h-14 w-12 rounded-2xl bg-plaque text-center font-[family-name:var(--font-unbounded)] text-2xl font-semibold text-foreground outline-none ring-2 transition sm:w-14 ${
+            hasError
+              ? "bg-red-50 ring-red-400 focus:ring-red-500"
+              : "ring-transparent focus:bg-white focus:ring-mint/50"
+          } disabled:opacity-60`}
+        />
+      ))}
+    </div>
   );
 }
 
@@ -268,12 +360,12 @@ function ResendTimer({
   loading: boolean;
   onResend: () => void;
 }) {
-  const [seconds, setSeconds] = useState(59);
+  const [seconds, setSeconds] = useState(60);
 
   useEffect(() => {
     const startedAt = Date.now();
     const id = window.setInterval(() => {
-      const left = Math.max(0, 59 - Math.floor((Date.now() - startedAt) / 1000));
+      const left = Math.max(0, 60 - Math.floor((Date.now() - startedAt) / 1000));
       setSeconds(left);
       if (left === 0) window.clearInterval(id);
     }, 250);
@@ -282,52 +374,61 @@ function ResendTimer({
 
   if (seconds > 0) {
     return (
-      <p className="text-center text-sm text-muted">
-        Отправить код повторно через {seconds} сек
-      </p>
+      <button
+        type="button"
+        disabled
+        className="w-full cursor-not-allowed rounded-2xl bg-plaque px-4 py-3 text-sm font-semibold text-muted"
+      >
+        Отправить повторно через {seconds} сек
+      </button>
     );
   }
 
   return (
-    <p className="text-center text-sm text-muted">
-      <button
-        type="button"
-        disabled={loading}
-        onClick={onResend}
-        className="font-semibold text-brand hover:underline disabled:opacity-50"
-      >
-        Отправить код повторно
-      </button>
-    </p>
+    <button
+      type="button"
+      disabled={loading}
+      onClick={onResend}
+      className="w-full rounded-2xl bg-brand-soft px-4 py-3 text-sm font-bold text-brand transition hover:bg-line disabled:opacity-50"
+    >
+      Отправить код еще раз
+    </button>
   );
 }
 
-async function sendSmsCode(phone: string) {
-  const response = await fetch("/api/auth/send-sms", {
+type AuthMethod = "telegram" | "sms";
+
+async function sendAuthCode(phone: string, method: AuthMethod) {
+  const response = await fetch("/api/auth/send", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ phone }),
+    body: JSON.stringify({ phone, method }),
   });
-  const data = (await response.json()) as { ok?: boolean; error?: string };
-  if (!response.ok || !data.ok) {
+  const data = (await response.json()) as {
+    success?: boolean;
+    error?: string;
+  };
+  if (!response.ok || !data.success) {
     throw new Error(data.error || "Не удалось отправить код");
   }
 }
 
-async function verifySmsCode(phone: string, code: string) {
-  const response = await fetch("/api/auth/verify-sms", {
+async function verifyAuthCode(phone: string, code: string) {
+  const response = await fetch("/api/auth/verify", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ phone, code }),
   });
   const data = (await response.json()) as {
-    ok?: boolean;
+    success?: boolean;
     authorized?: boolean;
+    token?: string;
     error?: string;
   };
-  if (!response.ok || !data.ok || !data.authorized) {
+  if (!response.ok || !data.success || !data.authorized) {
     throw new Error(data.error || "Неверный код");
   }
+  return data;
 }
 
 function AccountModal({
@@ -341,15 +442,22 @@ function AccountModal({
   const [phone, setPhone] = useState(PHONE_PREFIX);
   const [agreed, setAgreed] = useState(false);
   const [code, setCode] = useState("");
+  const [method, setMethod] = useState<AuthMethod>("sms");
   const [loading, setLoading] = useState(false);
+  const [verifying, setVerifying] = useState(false);
   const [error, setError] = useState("");
+  const [codeError, setCodeError] = useState(false);
   const [timerKey, setTimerKey] = useState(0);
+  const verifyingRef = useRef(false);
 
-  async function requestCode() {
+  async function requestCode(nextMethod: AuthMethod) {
+    if (!agreed || extractLocalDigits(phone).length < 9 || loading) return;
     setLoading(true);
     setError("");
+    setCodeError(false);
     try {
-      await sendSmsCode(phone.trim());
+      await sendAuthCode(phone.trim(), nextMethod);
+      setMethod(nextMethod);
       setStep(2);
       setCode("");
       setTimerKey((value) => value + 1);
@@ -360,39 +468,42 @@ function AccountModal({
     }
   }
 
-  async function onPhoneSubmit(event: FormEvent) {
-    event.preventDefault();
-    if (!agreed || extractLocalDigits(phone).length < 9 || loading) return;
-    await requestCode();
-  }
-
-  async function onCodeSubmit(event: FormEvent) {
-    event.preventDefault();
-    if (code.length !== 4 || loading) return;
-    setLoading(true);
+  async function verifyCode(nextCode: string) {
+    if (nextCode.length !== 4 || verifyingRef.current) return;
+    verifyingRef.current = true;
+    setVerifying(true);
     setError("");
+    setCodeError(false);
     try {
-      await verifySmsCode(phone.trim(), code);
+      await verifyAuthCode(phone.trim(), nextCode);
       onSuccess(phone.trim());
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Ошибка проверки");
+      setCodeError(true);
+      setError(err instanceof Error ? err.message : "Неверный код");
+      setCode("");
     } finally {
-      setLoading(false);
+      verifyingRef.current = false;
+      setVerifying(false);
     }
   }
 
+  const canSend =
+    agreed && extractLocalDigits(phone).length >= 9 && !loading;
+
   return (
     <ModalShell
-      title={step === 1 ? "Личный кабинет" : "Ввод СМС-кода"}
+      title={step === 1 ? "Личный кабинет" : "Ввод кода"}
       subtitle={
         step === 1
-          ? "Войдите по номеру телефона — пришлём код подтверждения."
-          : `Код отправлен на ${phone.trim()}. Для теста введите 1234.`
+          ? "Войдите по номеру телефона — пришлём код в Telegram или SMS."
+          : `Код отправлен на ${phone.trim()} через ${
+              method === "telegram" ? "Telegram" : "SMS"
+            }. Для теста введите 1234.`
       }
       onClose={onClose}
     >
       {step === 1 ? (
-        <form onSubmit={onPhoneSubmit} className="animate-sheet space-y-4">
+        <div className="animate-sheet space-y-4">
           <label className="block space-y-2">
             <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted">
               Телефон
@@ -410,40 +521,57 @@ function AccountModal({
             <p className="text-center text-sm font-medium text-red-500">{error}</p>
           ) : null}
 
-          <button
-            type="submit"
-            disabled={!agreed || loading}
-            className="flex min-h-12 w-full items-center justify-center rounded-2xl bg-brand px-4 py-3.5 text-sm font-bold uppercase tracking-[0.04em] text-white transition hover:bg-brand-deep disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none"
-          >
-            {loading ? "Отправляем…" : "Получить код"}
-          </button>
-        </form>
+          <div className="grid gap-2.5 sm:grid-cols-2">
+            <button
+              type="button"
+              disabled={!canSend}
+              onClick={() => requestCode("telegram")}
+              className="flex min-h-12 items-center justify-center rounded-2xl bg-[#229ED9] px-4 py-3.5 text-sm font-bold text-white transition hover:brightness-95 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none"
+            >
+              {loading ? "Отправляем…" : "Получить код в Telegram"}
+            </button>
+            <button
+              type="button"
+              disabled={!canSend}
+              onClick={() => requestCode("sms")}
+              className="flex min-h-12 items-center justify-center rounded-2xl bg-brand px-4 py-3.5 text-sm font-bold uppercase tracking-[0.04em] text-white transition hover:bg-brand-deep disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none"
+            >
+              {loading ? "Отправляем…" : "СМС"}
+            </button>
+          </div>
+        </div>
       ) : (
-        <form onSubmit={onCodeSubmit} className="animate-sheet space-y-4">
-          <label className="block space-y-2">
-            <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted">
-              Код из СМС
+        <div className="animate-sheet space-y-4">
+          <div className="space-y-2">
+            <span className="block text-center text-[11px] font-medium uppercase tracking-[0.14em] text-muted">
+              Код подтверждения
             </span>
-            <SmsCodeInput value={code} onChange={setCode} />
-          </label>
+            <OtpCodeInput
+              value={code}
+              onChange={(next) => {
+                setCode(next);
+                if (codeError) setCodeError(false);
+                if (error) setError("");
+              }}
+              onComplete={verifyCode}
+              disabled={verifying}
+              hasError={codeError}
+            />
+          </div>
+
+          {error ? (
+            <p className="text-center text-sm font-medium text-red-500">{error}</p>
+          ) : verifying ? (
+            <p className="text-center text-sm font-medium text-muted">
+              Проверяем код…
+            </p>
+          ) : null}
 
           <ResendTimer
             key={timerKey}
             loading={loading}
-            onResend={requestCode}
+            onResend={() => requestCode(method)}
           />
-
-          {error ? (
-            <p className="text-center text-sm font-medium text-red-500">{error}</p>
-          ) : null}
-
-          <button
-            type="submit"
-            disabled={code.length !== 4 || loading}
-            className="flex min-h-12 w-full items-center justify-center rounded-2xl bg-brand px-4 py-3.5 text-sm font-bold uppercase tracking-[0.04em] text-white transition hover:bg-brand-deep disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none"
-          >
-            {loading ? "Проверяем…" : "Войти"}
-          </button>
 
           <button
             type="button"
@@ -451,12 +579,13 @@ function AccountModal({
               setStep(1);
               setCode("");
               setError("");
+              setCodeError(false);
             }}
             className="w-full text-center text-sm font-medium text-muted hover:text-foreground"
           >
             Изменить номер
           </button>
-        </form>
+        </div>
       )}
     </ModalShell>
   );
@@ -476,15 +605,31 @@ function CleanerApplyModal({
   const [unp, setUnp] = useState("");
   const [agreed, setAgreed] = useState(false);
   const [code, setCode] = useState("");
+  const [method, setMethod] = useState<AuthMethod>("sms");
   const [loading, setLoading] = useState(false);
+  const [verifying, setVerifying] = useState(false);
   const [error, setError] = useState("");
+  const [codeError, setCodeError] = useState(false);
   const [timerKey, setTimerKey] = useState(0);
+  const verifyingRef = useRef(false);
 
-  async function requestCode() {
+  async function requestCode(nextMethod: AuthMethod) {
+    if (
+      !agreed ||
+      !name.trim() ||
+      !experience.trim() ||
+      unp.length < 9 ||
+      extractLocalDigits(phone).length < 9 ||
+      loading
+    ) {
+      return;
+    }
     setLoading(true);
     setError("");
+    setCodeError(false);
     try {
-      await sendSmsCode(phone.trim());
+      await sendAuthCode(phone.trim(), nextMethod);
+      setMethod(nextMethod);
       setStep(2);
       setCode("");
       setTimerKey((value) => value + 1);
@@ -495,39 +640,47 @@ function CleanerApplyModal({
     }
   }
 
-  async function onDetailsSubmit(event: FormEvent) {
-    event.preventDefault();
-    if (!agreed || extractLocalDigits(phone).length < 9 || loading) return;
-    await requestCode();
-  }
-
-  async function onCodeSubmit(event: FormEvent) {
-    event.preventDefault();
-    if (code.length !== 4 || loading) return;
-    setLoading(true);
+  async function verifyCode(nextCode: string) {
+    if (nextCode.length !== 4 || verifyingRef.current) return;
+    verifyingRef.current = true;
+    setVerifying(true);
     setError("");
+    setCodeError(false);
     try {
-      await verifySmsCode(phone.trim(), code);
+      await verifyAuthCode(phone.trim(), nextCode);
       onSuccess(phone.trim());
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Ошибка проверки");
+      setCodeError(true);
+      setError(err instanceof Error ? err.message : "Неверный код");
+      setCode("");
     } finally {
-      setLoading(false);
+      verifyingRef.current = false;
+      setVerifying(false);
     }
   }
 
+  const canSend =
+    agreed &&
+    name.trim().length > 0 &&
+    experience.trim().length > 0 &&
+    unp.length >= 9 &&
+    extractLocalDigits(phone).length >= 9 &&
+    !loading;
+
   return (
     <ModalShell
-      title={step === 1 ? "Стать клинером" : "Ввод СМС-кода"}
+      title={step === 1 ? "Стать клинером" : "Ввод кода"}
       subtitle={
         step === 1
-          ? "Оставьте заявку — подтвердим телефон и свяжемся с вами."
-          : `Код отправлен на ${phone.trim()}. Для теста введите 1234.`
+          ? "Оставьте заявку — подтвердим телефон через Telegram или SMS."
+          : `Код отправлен на ${phone.trim()} через ${
+              method === "telegram" ? "Telegram" : "SMS"
+            }. Для теста введите 1234.`
       }
       onClose={onClose}
     >
       {step === 1 ? (
-        <form onSubmit={onDetailsSubmit} className="animate-sheet space-y-3.5">
+        <div className="animate-sheet space-y-3.5">
           <label className="block space-y-2">
             <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted">
               Имя
@@ -587,40 +740,57 @@ function CleanerApplyModal({
             <p className="text-center text-sm font-medium text-red-500">{error}</p>
           ) : null}
 
-          <button
-            type="submit"
-            disabled={!agreed || loading}
-            className="flex min-h-12 w-full items-center justify-center rounded-2xl bg-brand px-4 py-3.5 text-sm font-bold uppercase tracking-[0.04em] text-white transition hover:bg-brand-deep disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none"
-          >
-            {loading ? "Отправляем…" : "Получить код"}
-          </button>
-        </form>
+          <div className="grid gap-2.5 sm:grid-cols-2">
+            <button
+              type="button"
+              disabled={!canSend}
+              onClick={() => requestCode("telegram")}
+              className="flex min-h-12 items-center justify-center rounded-2xl bg-[#229ED9] px-4 py-3.5 text-sm font-bold text-white transition hover:brightness-95 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none"
+            >
+              {loading ? "Отправляем…" : "Получить код в Telegram"}
+            </button>
+            <button
+              type="button"
+              disabled={!canSend}
+              onClick={() => requestCode("sms")}
+              className="flex min-h-12 items-center justify-center rounded-2xl bg-brand px-4 py-3.5 text-sm font-bold uppercase tracking-[0.04em] text-white transition hover:bg-brand-deep disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none"
+            >
+              {loading ? "Отправляем…" : "СМС"}
+            </button>
+          </div>
+        </div>
       ) : (
-        <form onSubmit={onCodeSubmit} className="animate-sheet space-y-4">
-          <label className="block space-y-2">
-            <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted">
-              Код из СМС
+        <div className="animate-sheet space-y-4">
+          <div className="space-y-2">
+            <span className="block text-center text-[11px] font-medium uppercase tracking-[0.14em] text-muted">
+              Код подтверждения
             </span>
-            <SmsCodeInput value={code} onChange={setCode} />
-          </label>
+            <OtpCodeInput
+              value={code}
+              onChange={(next) => {
+                setCode(next);
+                if (codeError) setCodeError(false);
+                if (error) setError("");
+              }}
+              onComplete={verifyCode}
+              disabled={verifying}
+              hasError={codeError}
+            />
+          </div>
+
+          {error ? (
+            <p className="text-center text-sm font-medium text-red-500">{error}</p>
+          ) : verifying ? (
+            <p className="text-center text-sm font-medium text-muted">
+              Проверяем код…
+            </p>
+          ) : null}
 
           <ResendTimer
             key={timerKey}
             loading={loading}
-            onResend={requestCode}
+            onResend={() => requestCode(method)}
           />
-
-          {error ? (
-            <p className="text-center text-sm font-medium text-red-500">{error}</p>
-          ) : null}
-
-          <button
-            type="submit"
-            disabled={code.length !== 4 || loading}
-            className="flex min-h-12 w-full items-center justify-center rounded-2xl bg-brand px-4 py-3.5 text-sm font-bold uppercase tracking-[0.04em] text-white transition hover:bg-brand-deep disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none"
-          >
-            {loading ? "Проверяем…" : "Подтвердить и отправить заявку"}
-          </button>
 
           <button
             type="button"
@@ -628,12 +798,13 @@ function CleanerApplyModal({
               setStep(1);
               setCode("");
               setError("");
+              setCodeError(false);
             }}
             className="w-full text-center text-sm font-medium text-muted hover:text-foreground"
           >
             Назад к заявке
           </button>
-        </form>
+        </div>
       )}
     </ModalShell>
   );
