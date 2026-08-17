@@ -902,6 +902,15 @@ export default function SiteHeader() {
             </span>
           </a>
 
+          {pathname !== "/" ? (
+            <a
+              href="/"
+              className="hidden rounded-full px-2.5 py-2 text-sm font-medium text-muted transition hover:bg-plaque hover:text-foreground sm:inline-flex"
+            >
+              На главную
+            </a>
+          ) : null}
+
           <nav className="ml-2 hidden items-center gap-0.5 lg:flex">
             {NAV_LINKS.map((link) => (
               <a
@@ -990,6 +999,16 @@ export default function SiteHeader() {
             </div>
 
             <nav className="flex flex-col gap-1">
+              <button
+                type="button"
+                onClick={() => {
+                  setMenuOpen(false);
+                  router.push("/");
+                }}
+                className="rounded-2xl px-4 py-3.5 text-left text-[15px] font-semibold text-foreground transition hover:bg-plaque"
+              >
+                На главную
+              </button>
               {NAV_LINKS.map((link) => (
                 <button
                   key={link.href}

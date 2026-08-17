@@ -287,6 +287,32 @@ const AREA_MIN = 20;
 const AREA_MAX = 200;
 const AREA_BASE = 40;
 
+const ADDRESS_PATTERN = /^[А-Яа-яЁё0-9\s.,\-]+$/;
+const ADDRESS_STRIP = /[^А-Яа-яЁё0-9\s.,\-]/g;
+
+function todayInputValue() {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, "0");
+  const d = String(now.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+function formatSelectedDate(value: string) {
+  if (!value) return "Не выбрана";
+  const [y, m, d] = value.split("-").map(Number);
+  if (!y || !m || !d) return "Не выбрана";
+  return new Intl.DateTimeFormat("ru-RU", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  }).format(new Date(y, m - 1, d));
+}
+
+function sanitizeAddress(value: string) {
+  return value.replace(ADDRESS_STRIP, "");
+}
+
 function formatPrice(value: number) {
   return new Intl.NumberFormat("ru-RU", {
     minimumFractionDigits: 0,
@@ -343,10 +369,12 @@ function StepperButton({
   label,
   onClick,
   disabled,
+  compact,
 }: {
   label: string;
   onClick: () => void;
   disabled?: boolean;
+  compact?: boolean;
 }) {
   return (
     <button
@@ -354,7 +382,9 @@ function StepperButton({
       aria-label={label}
       disabled={disabled}
       onClick={onClick}
-      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-xl font-medium text-foreground shadow-sm transition active:scale-95 disabled:opacity-35"
+      className={`flex shrink-0 items-center justify-center rounded-full bg-white font-medium text-foreground shadow-sm transition active:scale-95 disabled:opacity-35 ${
+        compact ? "h-8 w-8 text-lg" : "h-10 w-10 text-xl"
+      }`}
     >
       {label === "minus" ? "−" : "+"}
     </button>
@@ -394,6 +424,9 @@ export default function CleaningCalculator() {
   const [showCleaners, setShowCleaners] = useState(false);
   const [selectedCleanerIds, setSelectedCleanerIds] = useState<string[]>([]);
   const [orderAddress, setOrderAddress] = useState("");
+  const [addressError, setAddressError] = useState("");
+  const [selectedDate, setSelectedDate] = useState("");
+  const [datePickerOpen, setDatePickerOpen] = useState(false);
   const [showAddressStep, setShowAddressStep] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
   const [orderId, setOrderId] = useState("");
@@ -410,8 +443,10 @@ export default function CleaningCalculator() {
 
   const typeRef = useRef<HTMLDivElement>(null);
   const sortRef = useRef<HTMLDivElement>(null);
+  const dateRef = useRef<HTMLDivElement>(null);
   const cleanersRef = useRef<HTMLDivElement>(null);
   const calendarRef = useRef<HTMLDivElement>(null);
+  const dateInputRef = useRef<HTMLInputElement>(null);
 
   const selectedType = CLEANING_OPTIONS.find((item) => item.id === cleaningType)!;
   const selectedSort = SORT_OPTIONS.find((item) => item.id === sortMode)!;
@@ -455,6 +490,7 @@ export default function CleaningCalculator() {
       const target = event.target as Node;
       if (!typeRef.current?.contains(target)) setTypeOpen(false);
       if (!sortRef.current?.contains(target)) setSortOpen(false);
+      if (!dateRef.current?.contains(target)) setDatePickerOpen(false);
     }
     document.addEventListener("mousedown", onDocClick);
     return () => document.removeEventListener("mousedown", onDocClick);
@@ -568,12 +604,30 @@ export default function CleaningCalculator() {
 
   function confirmOrder(event: FormEvent) {
     event.preventDefault();
-    if (!orderAddress.trim() || !selectionComplete) return;
+    const address = orderAddress.trim();
+    if (!selectionComplete) return;
+    if (!address || !ADDRESS_PATTERN.test(address)) {
+      setAddressError(
+        "Адрес: только кириллица, цифры, пробел, запятая, точка и дефис",
+      );
+      return;
+    }
+    setAddressError("");
     const id = `ORD-${Date.now().toString().slice(-6)}`;
     setOrderId(id);
     setChatOpen(true);
     window.requestAnimationFrame(() => {
       document.getElementById("order-chat")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  }
+
+  function openDatePicker() {
+    setDatePickerOpen(true);
+    window.requestAnimationFrame(() => {
+      const input = dateInputRef.current;
+      if (!input) return;
+      input.showPicker?.();
+      input.focus();
     });
   }
 
@@ -640,14 +694,15 @@ export default function CleaningCalculator() {
             )}
           </div>
 
-          {/* Rooms & bathrooms */}
-          <div className="grid grid-cols-2 gap-3">
-            <div className="rounded-2xl bg-plaque px-3 py-3.5">
-              <p className="text-center text-[11px] font-medium uppercase tracking-[0.14em] text-muted">
+          {/* Rooms & bathrooms — compact */}
+          <div className="grid grid-cols-2 gap-2">
+            <div className="rounded-xl bg-plaque px-2.5 py-2.5">
+              <p className="text-center text-[10px] font-medium uppercase tracking-[0.12em] text-muted">
                 Комнаты
               </p>
-              <div className="mt-3 flex items-center justify-between gap-1">
+              <div className="mt-1.5 flex items-center justify-between gap-1">
                 <StepperButton
+                  compact
                   label="minus"
                   disabled={rooms <= 1}
                   onClick={() => {
@@ -655,10 +710,11 @@ export default function CleaningCalculator() {
                     resetSelection();
                   }}
                 />
-                <span className="min-w-8 text-center text-2xl font-semibold tabular-nums text-foreground">
+                <span className="min-w-6 text-center text-xl font-semibold tabular-nums text-foreground">
                   {rooms}
                 </span>
                 <StepperButton
+                  compact
                   label="plus"
                   disabled={rooms >= MAX_ROOMS}
                   onClick={() => {
@@ -669,12 +725,13 @@ export default function CleaningCalculator() {
               </div>
             </div>
 
-            <div className="rounded-2xl bg-plaque px-3 py-3.5">
-              <p className="text-center text-[11px] font-medium uppercase tracking-[0.14em] text-muted">
+            <div className="rounded-xl bg-plaque px-2.5 py-2.5">
+              <p className="text-center text-[10px] font-medium uppercase tracking-[0.12em] text-muted">
                 Санузлы
               </p>
-              <div className="mt-3 flex items-center justify-between gap-1">
+              <div className="mt-1.5 flex items-center justify-between gap-1">
                 <StepperButton
+                  compact
                   label="minus"
                   disabled={baths <= 1}
                   onClick={() => {
@@ -682,10 +739,11 @@ export default function CleaningCalculator() {
                     resetSelection();
                   }}
                 />
-                <span className="min-w-8 text-center text-2xl font-semibold tabular-nums text-foreground">
+                <span className="min-w-6 text-center text-xl font-semibold tabular-nums text-foreground">
                   {baths}
                 </span>
                 <StepperButton
+                  compact
                   label="plus"
                   disabled={baths >= MAX_BATHS}
                   onClick={() => {
@@ -732,119 +790,150 @@ export default function CleaningCalculator() {
             </div>
           </div>
 
-          {/* Cleaner count */}
-          <div className="rounded-2xl bg-plaque px-3 py-3.5">
-            <p className="text-center text-[11px] font-medium uppercase tracking-[0.14em] text-muted">
-              Количество клинеров
-            </p>
-            <div className="mt-3 flex items-center justify-between gap-2 px-1">
-              <StepperButton
-                label="minus"
-                disabled={cleanerCount <= 1}
-                onClick={() => {
-                  setCleanerCount((value) => Math.max(1, value - 1));
-                  setSelectedCleanerIds((prev) => prev.slice(0, Math.max(1, cleanerCount - 1)));
-                  setShowAddressStep(false);
-                  setChatOpen(false);
-                }}
-              />
-              <div className="min-w-0 text-center">
-                <span className="block text-2xl font-semibold tabular-nums text-foreground">
-                  {cleanerCount}
-                </span>
-                <span className="mt-0.5 block text-[11px] font-medium text-muted">
-                  {cleanerCount === 1
-                    ? "клинер"
-                    : cleanerCount >= 2 && cleanerCount <= 4
-                      ? "клинера"
-                      : "клинеров"}
-                </span>
+          {/* Cleaners + extras in one row */}
+          <div className="grid grid-cols-2 gap-2">
+            <div className="rounded-xl bg-plaque px-2 py-2.5">
+              <p className="text-center text-[10px] font-medium uppercase tracking-[0.1em] text-muted">
+                Клинеры
+              </p>
+              <div className="mt-1.5 flex items-center justify-between gap-0.5">
+                <StepperButton
+                  compact
+                  label="minus"
+                  disabled={cleanerCount <= 1}
+                  onClick={() => {
+                    setCleanerCount((value) => Math.max(1, value - 1));
+                    setSelectedCleanerIds((prev) =>
+                      prev.slice(0, Math.max(1, cleanerCount - 1)),
+                    );
+                    setShowAddressStep(false);
+                    setChatOpen(false);
+                  }}
+                />
+                <div className="min-w-0 px-0.5 text-center">
+                  <span className="block text-lg font-semibold tabular-nums text-foreground">
+                    {cleanerCount}
+                  </span>
+                </div>
+                <StepperButton
+                  compact
+                  label="plus"
+                  disabled={cleanerCount >= MAX_CLEANERS}
+                  onClick={() => {
+                    setCleanerCount((value) => Math.min(MAX_CLEANERS, value + 1));
+                    setShowAddressStep(false);
+                    setChatOpen(false);
+                  }}
+                />
               </div>
-              <StepperButton
-                label="plus"
-                disabled={cleanerCount >= MAX_CLEANERS}
-                onClick={() => {
-                  setCleanerCount((value) => Math.min(MAX_CLEANERS, value + 1));
-                  setShowAddressStep(false);
-                  setChatOpen(false);
-                }}
-              />
+            </div>
+
+            <div className="min-w-0">
+              <button
+                type="button"
+                onClick={() => setExtrasOpen((open) => !open)}
+                className="flex h-full min-h-[68px] w-full items-center gap-2 rounded-xl bg-plaque px-2.5 py-2 text-left transition active:scale-[0.995]"
+              >
+                <span className="min-w-0 flex-1">
+                  <span className="block text-[10px] font-medium uppercase tracking-[0.1em] text-muted">
+                    Доп. услуги
+                  </span>
+                  <span className="mt-0.5 block truncate text-[13px] font-medium leading-tight text-foreground">
+                    {extrasSummary}
+                  </span>
+                </span>
+                <ChevronRight open={extrasOpen} />
+              </button>
             </div>
           </div>
 
-          {/* Extra services */}
-          <div>
-            <button
-              type="button"
-              onClick={() => setExtrasOpen((open) => !open)}
-              className="flex w-full items-center gap-3 rounded-2xl bg-plaque px-4 py-3.5 text-left transition active:scale-[0.995]"
-            >
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-brand shadow-sm">
-                <svg viewBox="0 0 24 24" className="h-5 w-5" fill="currentColor">
-                  <rect x="3" y="3" width="8" height="8" rx="2" />
-                  <rect x="13" y="3" width="8" height="8" rx="2" />
-                  <rect x="3" y="13" width="8" height="8" rx="2" />
-                  <rect x="13" y="13" width="8" height="8" rx="2" />
-                </svg>
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="block text-[11px] font-medium uppercase tracking-[0.14em] text-muted">
-                  Доп. услуги
-                </span>
-                <span className="mt-0.5 block truncate text-[15px] font-medium text-foreground">
-                  {extrasSummary}
-                </span>
-              </span>
-              <ChevronRight open={extrasOpen} />
-            </button>
-
-            {extrasOpen && (
-              <div className="animate-sheet mt-3 rounded-2xl bg-plaque p-3">
-                <div className="grid grid-cols-2 gap-2.5">
-                  {EXTRAS.map((extra) => {
-                    const active = extras.has(extra.id);
-                    return (
-                      <button
-                        key={extra.id}
-                        type="button"
-                        onClick={() => toggleExtra(extra.id)}
-                        className={`relative flex min-h-[112px] flex-col items-start justify-between rounded-2xl p-3.5 text-left transition-all duration-200 ${
-                          active
-                            ? "bg-white shadow-md ring-2 ring-mint"
-                            : "bg-white/80 shadow-sm hover:bg-white"
+          {extrasOpen && (
+            <div className="animate-sheet rounded-2xl bg-plaque p-3">
+              <div className="grid grid-cols-2 gap-2.5">
+                {EXTRAS.map((extra) => {
+                  const active = extras.has(extra.id);
+                  return (
+                    <button
+                      key={extra.id}
+                      type="button"
+                      onClick={() => toggleExtra(extra.id)}
+                      className={`relative flex min-h-[100px] flex-col items-start justify-between rounded-2xl p-3 text-left transition-all duration-200 ${
+                        active
+                          ? "bg-white shadow-md ring-2 ring-mint"
+                          : "bg-white/80 shadow-sm hover:bg-white"
+                      }`}
+                    >
+                      <span className="text-brand">{extra.icon}</span>
+                      <span>
+                        <span className="block text-[13px] font-semibold leading-snug text-foreground">
+                          {extra.label}
+                        </span>
+                        <span className="mt-1 block text-xs text-muted">
+                          +{formatPrice(extra.price)} BYN
+                        </span>
+                      </span>
+                      <span
+                        className={`absolute right-2.5 top-2.5 flex h-7 w-7 items-center justify-center rounded-full text-lg font-medium transition ${
+                          active ? "bg-mint text-white" : "bg-plaque text-muted"
                         }`}
                       >
-                        <span className="text-brand">{extra.icon}</span>
-                        <span>
-                          <span className="block text-[13px] font-semibold leading-snug text-foreground">
-                            {extra.label}
-                          </span>
-                          <span className="mt-1 block text-xs text-muted">
-                            +{formatPrice(extra.price)} BYN
-                          </span>
-                        </span>
-                        <span
-                          className={`absolute right-2.5 top-2.5 flex h-7 w-7 items-center justify-center rounded-full text-lg font-medium transition ${
-                            active ? "bg-mint text-white" : "bg-plaque text-muted"
-                          }`}
-                        >
-                          {active ? "✓" : "+"}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
+                        {active ? "✓" : "+"}
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
-            )}
+            </div>
+          )}
+
+          {/* Date picker cell */}
+          <div ref={dateRef} className="relative">
+            <button
+              type="button"
+              onClick={openDatePicker}
+              className="flex w-full items-center justify-between rounded-2xl bg-plaque px-4 py-3 text-left transition active:scale-[0.995]"
+            >
+              <span>
+                <span className="block text-[11px] font-medium uppercase tracking-[0.14em] text-muted">
+                  Выбрать дату
+                </span>
+                <span className="mt-1 block text-[15px] font-semibold text-foreground">
+                  {formatSelectedDate(selectedDate)}
+                </span>
+              </span>
+              <span className="ml-3 flex h-9 w-9 items-center justify-center rounded-full bg-white text-brand shadow-sm">
+                <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
+                  <rect x="3" y="5" width="18" height="16" rx="2" />
+                  <path d="M3 10h18M8 3v4M16 3v4" strokeLinecap="round" />
+                </svg>
+              </span>
+            </button>
+            <input
+              ref={dateInputRef}
+              type="date"
+              min={todayInputValue()}
+              value={selectedDate}
+              onChange={(event) => {
+                const next = event.target.value;
+                if (next && next < todayInputValue()) return;
+                setSelectedDate(next);
+                setDatePickerOpen(false);
+                resetSelection();
+              }}
+              className={`absolute left-4 top-[calc(100%+6px)] z-30 rounded-xl border border-line bg-white px-3 py-2 text-sm shadow-lg outline-none ${
+                datePickerOpen ? "block" : "pointer-events-none sr-only"
+              }`}
+              aria-label="Дата уборки"
+            />
           </div>
 
         </div>
       </div>
 
-      {/* Live price range from cleaners — under card, above find button */}
-      <div className="rounded-2xl bg-panel px-4 py-3.5 shadow-[0_10px_28px_rgba(17,24,39,0.06)]">
-        <p className="text-[13px] leading-snug text-muted">
-          Стоимость у клинеров:{" "}
+      {/* Price + sort in one row */}
+      <div className="flex flex-col gap-2 rounded-2xl bg-panel px-3 py-3 shadow-[0_10px_28px_rgba(17,24,39,0.06)] sm:flex-row sm:items-center sm:justify-between sm:gap-3 sm:px-4">
+        <p className="min-w-0 flex-1 text-[13px] leading-snug text-muted">
+          Стоимость:{" "}
           <span
             key={`${minCleanerPrice}-${maxCleanerPrice}`}
             className="price-pop font-semibold text-foreground"
@@ -852,53 +941,47 @@ export default function CleaningCalculator() {
             от {formatPrice(minCleanerPrice)} до {formatPrice(maxCleanerPrice)} BYN
           </span>
         </p>
-      </div>
 
-      {/* Sort plaque */}
-      <div ref={sortRef} className="relative">
-        <button
-          type="button"
-          onClick={() => setSortOpen((open) => !open)}
-          className="flex w-full items-center justify-between gap-3 rounded-2xl bg-panel px-4 py-3.5 text-left shadow-[0_10px_28px_rgba(17,24,39,0.06)] transition active:scale-[0.995]"
-        >
-          <span className="shrink-0 text-[11px] font-medium uppercase tracking-[0.14em] text-muted">
-            Сортировать по
-          </span>
-          <span className="flex min-w-0 items-center gap-2">
+        <div ref={sortRef} className="relative shrink-0 sm:max-w-[52%]">
+          <button
+            type="button"
+            onClick={() => setSortOpen((open) => !open)}
+            className="flex w-full items-center justify-between gap-2 rounded-xl bg-plaque px-3 py-2.5 text-left transition active:scale-[0.995] sm:min-w-[220px]"
+          >
             <span className="truncate text-sm font-semibold text-foreground">
               {selectedSort.label}
             </span>
-            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-plaque">
+            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white">
               <ChevronDown open={sortOpen} />
             </span>
-          </span>
-        </button>
+          </button>
 
-        {sortOpen && (
-          <div className="animate-sheet absolute left-0 right-0 top-[calc(100%+8px)] z-30 overflow-hidden rounded-2xl bg-white p-1.5 shadow-[0_16px_40px_rgba(17,24,39,0.14)] ring-1 ring-black/5">
-            {SORT_OPTIONS.map((option) => {
-              const active = option.id === sortMode;
-              return (
-                <button
-                  key={option.id}
-                  type="button"
-                  onClick={() => {
-                    setSortMode(option.id);
-                    setSortOpen(false);
-                  }}
-                  className={`flex w-full items-center justify-between rounded-xl px-3.5 py-3 text-left text-sm font-medium transition ${
-                    active
-                      ? "bg-brand-soft text-brand"
-                      : "text-foreground hover:bg-plaque"
-                  }`}
-                >
-                  {option.label}
-                  {active ? <span className="text-brand">✓</span> : null}
-                </button>
-              );
-            })}
-          </div>
-        )}
+          {sortOpen && (
+            <div className="animate-sheet absolute left-0 right-0 top-[calc(100%+8px)] z-30 overflow-hidden rounded-2xl bg-white p-1.5 shadow-[0_16px_40px_rgba(17,24,39,0.14)] ring-1 ring-black/5 sm:left-auto sm:w-[280px]">
+              {SORT_OPTIONS.map((option) => {
+                const active = option.id === sortMode;
+                return (
+                  <button
+                    key={option.id}
+                    type="button"
+                    onClick={() => {
+                      setSortMode(option.id);
+                      setSortOpen(false);
+                    }}
+                    className={`flex w-full items-center justify-between rounded-xl px-3.5 py-3 text-left text-sm font-medium transition ${
+                      active
+                        ? "bg-brand-soft text-brand"
+                        : "text-foreground hover:bg-plaque"
+                    }`}
+                  >
+                    {option.label}
+                    {active ? <span className="text-brand">✓</span> : null}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Find cleaners CTA */}
@@ -1031,11 +1114,42 @@ export default function CleaningCalculator() {
                   type="text"
                   required
                   value={orderAddress}
-                  onChange={(event) => setOrderAddress(event.target.value)}
+                  onChange={(event) => {
+                    const next = sanitizeAddress(event.target.value);
+                    setOrderAddress(next);
+                    if (addressError) setAddressError("");
+                  }}
+                  onPaste={(event) => {
+                    event.preventDefault();
+                    const pasted = event.clipboardData.getData("text");
+                    setOrderAddress((prev) => sanitizeAddress(`${prev}${pasted}`));
+                  }}
                   placeholder="Город, улица, дом, квартира"
-                  className="w-full rounded-2xl bg-plaque px-4 py-3.5 text-[15px] font-medium text-foreground outline-none ring-1 ring-transparent transition focus:bg-white focus:ring-mint/50"
+                  inputMode="text"
+                  autoComplete="street-address"
+                  lang="ru"
+                  className={`w-full rounded-2xl bg-plaque px-4 py-3.5 text-[15px] font-medium text-foreground outline-none ring-1 transition focus:bg-white ${
+                    addressError
+                      ? "ring-red-400 focus:ring-red-500"
+                      : "ring-transparent focus:ring-mint/50"
+                  }`}
                 />
+                {addressError ? (
+                  <p className="text-xs font-medium text-red-500">{addressError}</p>
+                ) : (
+                  <p className="text-xs text-muted">
+                    Только кириллица, цифры, пробел, запятая, точка и дефис
+                  </p>
+                )}
               </label>
+              {selectedDate ? (
+                <p className="mt-3 text-sm text-muted">
+                  Дата уборки:{" "}
+                  <span className="font-semibold text-foreground">
+                    {formatSelectedDate(selectedDate)}
+                  </span>
+                </p>
+              ) : null}
               <button
                 type="submit"
                 className="mt-3.5 flex min-h-12 w-full items-center justify-center rounded-2xl bg-brand px-4 py-3.5 text-sm font-bold uppercase tracking-[0.04em] text-white transition hover:bg-brand-deep"

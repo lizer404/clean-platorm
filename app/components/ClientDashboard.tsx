@@ -136,7 +136,7 @@ function downloadReceipt(order: ClientOrder) {
 
 export default function ClientDashboard() {
   const router = useRouter();
-  const { isLoggedIn, authReady, userPhone, openAccountModal } = useAuth();
+  const { isLoggedIn, authReady, userPhone, openAccountModal, logout } = useAuth();
   const [now, setNow] = useState(() => Date.now());
   const [view, setView] = useState<"orders" | "game">("orders");
   const [chatOrderId, setChatOrderId] = useState<string | null>(null);
@@ -163,6 +163,11 @@ export default function ClientDashboard() {
     const id = window.setInterval(() => setNow(Date.now()), 30_000);
     return () => window.clearInterval(id);
   }, []);
+
+  function handleLogout() {
+    logout();
+    router.replace("/");
+  }
 
   function repeatOrder(order: ClientOrder) {
     saveRepeatBooking({
@@ -231,6 +236,13 @@ export default function ClientDashboard() {
             </span>
             <span className="text-xs font-medium text-muted">рейтинг</span>
           </div>
+          <button
+            type="button"
+            onClick={handleLogout}
+            className="inline-flex items-center rounded-full border border-line bg-transparent px-3.5 py-2 text-sm font-semibold text-muted transition hover:bg-plaque hover:text-foreground"
+          >
+            Выйти
+          </button>
         </div>
       </div>
 
