@@ -31,7 +31,7 @@ export default function Home() {
           </div>
         </main>
 
-        <footer className="mt-auto border-t border-line/70 bg-panel">
+        <footer id="footer" className="mt-auto scroll-mt-24 border-t border-line/70 bg-panel">
           <div className="mx-auto w-full max-w-6xl px-4 py-10 sm:px-6">
             <div className="grid gap-8 sm:grid-cols-3">
               <div>
@@ -58,13 +58,13 @@ export default function Home() {
                 </ul>
               </div>
 
-              <div>
+              <div id="support">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted">
                   Поддержка
                 </p>
                 <ul className="mt-3 space-y-2 text-sm text-foreground">
                   <li>
-                    Почта:{" "}
+                    E-mail:{" "}
                     <a
                       href="mailto:feedback@cleanplatform.by"
                       className="font-medium hover:text-brand"
@@ -73,7 +73,7 @@ export default function Home() {
                     </a>
                   </li>
                   <li>
-                    Telegram:{" "}
+                    Telegram-поддержка:{" "}
                     <a
                       href="https://t.me/cleanplatform_support"
                       target="_blank"
@@ -91,7 +91,7 @@ export default function Home() {
                   Юридическая информация
                 </p>
                 <ul className="mt-3 space-y-2 text-sm text-foreground">
-                  <li>Реквизиты ИП: ИП Иванов И.И.</li>
+                  <li>ИП: Иванов И.И.</li>
                   <li>УНП: 123456789</li>
                 </ul>
               </div>

@@ -14,6 +14,7 @@ const NAV_LINKS = [
   { href: "#how-it-works", label: "Как это работает" },
   { href: "#reviews", label: "Отзывы" },
   { href: "#guarantees", label: "Гарантии" },
+  { href: "#footer", label: "Поддержка" },
 ] as const;
 
 const PHONE_PREFIX = "+375 ";
@@ -42,21 +43,6 @@ function MenuIcon() {
     </svg>
   );
 }
-
-function PhoneIcon() {
-  return (
-    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.9">
-      <path
-        d="M8.2 4.8c.4-.4 1-.5 1.5-.3l1.8.7c.6.2 1 .8.9 1.4l-.3 1.7a1.2 1.2 0 0 1-.7 1l-1 .4a11.5 11.5 0 0 0 5.4 5.4l.4-1c.2-.4.7-.7 1.1-.7l1.7-.3c.6-.1 1.2.3 1.4.9l.7 1.8c.2.5.1 1.1-.3 1.5l-1 1.1c-.4.4-1 .6-1.6.5C10.8 19.6 4.4 13.2 3.2 6.4c-.1-.6.1-1.2.5-1.6l1-1z"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
-const CONTACT_PHONE = "+375 29 000-00-00";
-const CONTACT_PHONE_HREF = "tel:+375290000000";
-const LEGAL_STUB = "ИП Фамилия И.О. УНП 123456789";
 
 function extractLocalDigits(value: string) {
   let digits = value.replace(/\D/g, "");
@@ -874,9 +860,9 @@ export default function SiteHeader() {
   function openSection(href: string) {
     setMenuOpen(false);
     const id = href.replace("#", "");
-    window.requestAnimationFrame(() => {
+    window.setTimeout(() => {
       document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
-    });
+    }, 50);
   }
 
   return (
@@ -892,11 +878,15 @@ export default function SiteHeader() {
             </span>
           </a>
 
-          <nav className="ml-2 hidden items-center gap-0.5 xl:flex">
+          <nav className="ml-2 hidden items-center gap-0.5 lg:flex">
             {NAV_LINKS.map((link) => (
               <a
                 key={link.href}
                 href={link.href}
+                onClick={(event) => {
+                  event.preventDefault();
+                  openSection(link.href);
+                }}
                 className="rounded-full px-2.5 py-2 text-sm font-medium text-muted transition hover:bg-plaque hover:text-foreground"
               >
                 {link.label}
@@ -905,27 +895,6 @@ export default function SiteHeader() {
           </nav>
 
           <div className="ml-auto flex min-w-0 items-center gap-1.5 sm:gap-2.5">
-            <div className="mr-1 hidden min-w-0 flex-col items-end lg:flex">
-              <a
-                href={CONTACT_PHONE_HREF}
-                className="inline-flex items-center gap-1.5 text-sm font-semibold text-foreground transition hover:text-brand"
-              >
-                <PhoneIcon />
-                <span className="whitespace-nowrap">{CONTACT_PHONE}</span>
-              </a>
-              <p className="max-w-[200px] truncate text-[10px] leading-tight text-muted xl:max-w-none">
-                {LEGAL_STUB}
-              </p>
-            </div>
-
-            <button
-              type="button"
-              onClick={openCleanerModal}
-              className="hidden rounded-full border border-line bg-transparent px-3 py-2 text-sm font-medium text-muted transition hover:border-slate-300 hover:bg-plaque hover:text-foreground sm:inline-flex"
-            >
-              Стать клинером
-            </button>
-
             {isAuthenticated ? (
               <button
                 type="button"
@@ -946,15 +915,24 @@ export default function SiteHeader() {
                 className="inline-flex items-center gap-2 rounded-full bg-brand px-3.5 py-2 text-sm font-bold text-white shadow-sm transition hover:bg-brand-deep"
               >
                 <ProfileIcon />
-                Вход
+                <span className="hidden sm:inline">Войти в аккаунт</span>
+                <span className="sm:hidden">Войти</span>
               </button>
             )}
 
             <button
               type="button"
+              onClick={openCleanerModal}
+              className="hidden rounded-full border border-line bg-transparent px-3 py-2 text-sm font-medium text-muted transition hover:border-slate-300 hover:bg-plaque hover:text-foreground sm:inline-flex"
+            >
+              Стать клинером
+            </button>
+
+            <button
+              type="button"
               aria-label="Открыть меню"
               onClick={() => setMenuOpen(true)}
-              className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-plaque text-foreground xl:hidden"
+              className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-plaque text-foreground lg:hidden"
             >
               <MenuIcon />
             </button>
@@ -963,7 +941,7 @@ export default function SiteHeader() {
       </header>
 
       {menuOpen && (
-        <div className="fixed inset-0 z-[105] xl:hidden">
+        <div className="fixed inset-0 z-[105] lg:hidden">
           <button
             type="button"
             aria-label="Закрыть меню"
@@ -997,17 +975,6 @@ export default function SiteHeader() {
               ))}
             </nav>
 
-            <div className="mt-5 rounded-2xl bg-plaque px-4 py-3.5">
-              <a
-                href={CONTACT_PHONE_HREF}
-                className="inline-flex items-center gap-2 text-sm font-semibold text-foreground"
-              >
-                <PhoneIcon />
-                {CONTACT_PHONE}
-              </a>
-              <p className="mt-1.5 text-xs leading-snug text-muted">{LEGAL_STUB}</p>
-            </div>
-
             <div className="mt-auto space-y-2.5 pt-6">
               {isAuthenticated ? (
                 <button
@@ -1031,7 +998,7 @@ export default function SiteHeader() {
                   className="flex w-full items-center justify-center gap-2 rounded-2xl bg-brand px-4 py-3.5 text-sm font-bold text-white"
                 >
                   <ProfileIcon />
-                  Вход / Личный кабинет
+                  Войти в аккаунт
                 </button>
               )}
               <button
