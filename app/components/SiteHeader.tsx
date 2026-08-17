@@ -3,6 +3,7 @@
 import {
   useEffect,
   useId,
+  useLayoutEffect,
   useRef,
   useState,
   type ReactNode,
@@ -271,20 +272,24 @@ function OtpCodeInput({
 
   function focusIndex(index: number) {
     const el = inputsRef.current[Math.max(0, Math.min(3, index))];
-    el?.focus();
-    el?.select();
+    if (!el || el.disabled) return;
+    el.focus({ preventScroll: true });
+    el.select();
   }
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (disabled) return;
-    const id = window.requestAnimationFrame(() => focusIndex(0));
-    return () => window.cancelAnimationFrame(id);
+    focusIndex(0);
+    const timers = [40, 120, 280].map((ms) =>
+      window.setTimeout(() => focusIndex(0), ms),
+    );
+    return () => timers.forEach((id) => window.clearTimeout(id));
   }, [disabled]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (disabled || value.length > 0) return;
     focusIndex(0);
-  }, [disabled, value]);
+  }, [disabled, value, hasError]);
 
   function applyDigits(nextRaw: string, startIndex = 0) {
     const incoming = nextRaw.replace(/\D/g, "");
@@ -374,7 +379,7 @@ function OtpCodeInput({
           className={`h-14 w-12 rounded-2xl bg-plaque text-center font-[family-name:var(--font-unbounded)] text-2xl font-semibold text-foreground outline-none ring-2 transition sm:w-14 ${
             hasError
               ? "bg-red-50 ring-red-400 focus:ring-red-500"
-              : "ring-transparent focus:bg-white focus:ring-mint/50"
+              : "ring-line/80 focus:bg-white focus:ring-mint"
           } disabled:opacity-60`}
         />
       ))}
@@ -592,6 +597,7 @@ function AccountModal({
               Код подтверждения
             </span>
             <OtpCodeInput
+              key={`account-otp-${timerKey}`}
               value={code}
               onChange={(next) => {
                 setCode(next);
@@ -798,6 +804,7 @@ function CleanerApplyModal({
               Код подтверждения
             </span>
             <OtpCodeInput
+              key={`cleaner-otp-${timerKey}`}
               value={code}
               onChange={(next) => {
                 setCode(next);
