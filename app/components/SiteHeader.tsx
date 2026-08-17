@@ -191,6 +191,52 @@ function ModalShell({
   );
 }
 
+function ConsentCheckbox({
+  checked,
+  onChange,
+  id,
+}: {
+  checked: boolean;
+  onChange: (next: boolean) => void;
+  id: string;
+}) {
+  return (
+    <label htmlFor={id} className="flex cursor-pointer items-start gap-3">
+      <span className="relative mt-0.5 inline-flex h-5 w-5 shrink-0">
+        <input
+          id={id}
+          type="checkbox"
+          checked={checked}
+          onChange={(event) => onChange(event.target.checked)}
+          className="peer absolute inset-0 z-10 cursor-pointer opacity-0"
+        />
+        <span
+          className={`flex h-5 w-5 items-center justify-center rounded-[5px] border-2 transition ${
+            checked
+              ? "border-success bg-success/15"
+              : "border-slate-300 bg-white"
+          }`}
+        >
+          {checked ? (
+            <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" fill="none">
+              <path
+                d="M3.5 8.2 6.4 11l6.1-6.5"
+                stroke="#16a34a"
+                strokeWidth="2.2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          ) : null}
+        </span>
+      </span>
+      <span className="text-sm leading-snug text-muted">
+        Я согласен с политикой конфиденциальности
+      </span>
+    </label>
+  );
+}
+
 function AccountModal({
   onClose,
   onSuccess,
@@ -199,10 +245,11 @@ function AccountModal({
   onSuccess: (phone: string) => void;
 }) {
   const [phone, setPhone] = useState(PHONE_PREFIX);
+  const [agreed, setAgreed] = useState(false);
 
   function onSubmit(event: FormEvent) {
     event.preventDefault();
-    if (extractLocalDigits(phone).length < 9) return;
+    if (!agreed || extractLocalDigits(phone).length < 9) return;
     onSuccess(phone.trim());
   }
 
@@ -219,9 +266,17 @@ function AccountModal({
           </span>
           <BelarusPhoneInput value={phone} onChange={setPhone} />
         </label>
+
+        <ConsentCheckbox
+          id="account-privacy-consent"
+          checked={agreed}
+          onChange={setAgreed}
+        />
+
         <button
           type="submit"
-          className="flex min-h-12 w-full items-center justify-center rounded-2xl bg-brand px-4 py-3.5 text-sm font-bold uppercase tracking-[0.04em] text-white transition hover:bg-brand-deep"
+          disabled={!agreed}
+          className="flex min-h-12 w-full items-center justify-center rounded-2xl bg-brand px-4 py-3.5 text-sm font-bold uppercase tracking-[0.04em] text-white transition hover:bg-brand-deep disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none"
         >
           Получить код
         </button>
@@ -238,11 +293,12 @@ function CleanerApplyModal({ onClose }: { onClose: () => void }) {
   const [phone, setPhone] = useState(PHONE_PREFIX);
   const [experience, setExperience] = useState("");
   const [unp, setUnp] = useState("");
+  const [agreed, setAgreed] = useState(false);
   const [sent, setSent] = useState(false);
 
   function onSubmit(event: FormEvent) {
     event.preventDefault();
-    if (extractLocalDigits(phone).length < 9) return;
+    if (!agreed || extractLocalDigits(phone).length < 9) return;
     setSent(true);
   }
 
@@ -314,9 +370,20 @@ function CleanerApplyModal({ onClose }: { onClose: () => void }) {
             className="w-full rounded-2xl bg-plaque px-4 py-3.5 text-[15px] font-medium text-foreground outline-none ring-1 ring-transparent transition focus:bg-white focus:ring-mint/50"
           />
         </label>
+
+        <ConsentCheckbox
+          id="cleaner-privacy-consent"
+          checked={agreed}
+          onChange={(next) => {
+            setAgreed(next);
+            setSent(false);
+          }}
+        />
+
         <button
           type="submit"
-          className="flex min-h-12 w-full items-center justify-center rounded-2xl bg-brand px-4 py-3.5 text-sm font-bold uppercase tracking-[0.04em] text-white transition hover:bg-brand-deep"
+          disabled={!agreed}
+          className="flex min-h-12 w-full items-center justify-center rounded-2xl bg-brand px-4 py-3.5 text-sm font-bold uppercase tracking-[0.04em] text-white transition hover:bg-brand-deep disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none"
         >
           Отправить заявку
         </button>
