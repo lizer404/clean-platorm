@@ -8,6 +8,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "./AuthProvider";
 
 const NAV_LINKS = [
@@ -845,6 +846,8 @@ function CleanerApplyModal({
 
 export default function SiteHeader() {
   const [menuOpen, setMenuOpen] = useState(false);
+  const pathname = usePathname();
+  const router = useRouter();
   const {
     isLoggedIn,
     userPhone,
@@ -869,16 +872,28 @@ export default function SiteHeader() {
   function openSection(href: string) {
     setMenuOpen(false);
     const id = href.replace("#", "");
+
+    if (pathname !== "/") {
+      router.push(`/#${id}`);
+      return;
+    }
+
     window.setTimeout(() => {
       document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
     }, 50);
+  }
+
+  function openProfile() {
+    setMenuOpen(false);
+    if (pathname === "/profile") return;
+    router.push("/profile");
   }
 
   return (
     <>
       <header className="sticky top-0 z-[100] border-b border-line/70 bg-white/90 shadow-[0_8px_24px_rgba(17,24,39,0.05)] backdrop-blur-md">
         <div className="mx-auto flex w-full max-w-6xl items-center gap-2 px-4 py-3 sm:gap-3 sm:px-6">
-          <a href="#calculator" className="flex min-w-0 shrink-0 items-center gap-2.5">
+          <a href="/" className="flex min-w-0 shrink-0 items-center gap-2.5">
             <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-brand text-sm font-bold text-white shadow-sm">
               C
             </span>
@@ -891,7 +906,7 @@ export default function SiteHeader() {
             {NAV_LINKS.map((link) => (
               <a
                 key={link.href}
-                href={link.href}
+                href={pathname === "/" ? link.href : `/${link.href}`}
                 onClick={(event) => {
                   event.preventDefault();
                   openSection(link.href);
@@ -907,7 +922,7 @@ export default function SiteHeader() {
             {isLoggedIn ? (
               <button
                 type="button"
-                onClick={() => openAccountModal()}
+                onClick={openProfile}
                 aria-label="Личный кабинет"
                 className="inline-flex max-w-[220px] items-center gap-2 rounded-full bg-brand px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-deep"
               >
@@ -990,10 +1005,7 @@ export default function SiteHeader() {
               {isLoggedIn ? (
                 <button
                   type="button"
-                  onClick={() => {
-                    setMenuOpen(false);
-                    openAccountModal();
-                  }}
+                  onClick={openProfile}
                   className="flex w-full items-center justify-center gap-2 rounded-2xl bg-brand px-4 py-3.5 text-sm font-bold text-white"
                 >
                   <ProfileIcon />
@@ -1029,7 +1041,13 @@ export default function SiteHeader() {
       )}
 
       {accountModalOpen && (
-        <AccountModal onClose={closeAccountModal} onSuccess={login} />
+        <AccountModal
+          onClose={closeAccountModal}
+          onSuccess={(phone) => {
+            login(phone);
+            router.push("/profile");
+          }}
+        />
       )}
       {cleanerModalOpen && (
         <CleanerApplyModal onClose={closeCleanerModal} onSuccess={login} />

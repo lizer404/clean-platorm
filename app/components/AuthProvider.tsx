@@ -20,6 +20,7 @@ type StoredAuth = {
 type AuthContextValue = {
   isAuthenticated: boolean;
   isLoggedIn: boolean;
+  authReady: boolean;
   userPhone: string | null;
   login: (phone: string) => void;
   logout: () => void;
@@ -111,6 +112,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     () => ({
       isAuthenticated: hydrated ? isAuthenticated : false,
       isLoggedIn: hydrated ? isAuthenticated : false,
+      authReady: hydrated,
       userPhone: hydrated ? userPhone : null,
       login,
       logout,
