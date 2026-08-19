@@ -723,26 +723,39 @@ function CleanerApplyModal({ onClose }: { onClose: () => void }) {
     file !== null &&
     !loading;
 
-  async function onSubmit(event: FormEvent) {
+  function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!canSubmit) {
+    event.stopPropagation();
+
+    if (
+      fullName.trim().length <= 1 ||
+      extractLocalDigits(phone).length < 9 ||
+      (status !== "ip" && status !== "npd") ||
+      unp.length !== 9 ||
+      !file
+    ) {
       setError("Заполните все обязательные поля и прикрепите документ");
       return;
     }
+    if (loading) return;
+
     setLoading(true);
     setError("");
-    // Mock moderation submit — no real backend yet
-    await new Promise((resolve) => window.setTimeout(resolve, 500));
-    console.log("Cleaner application:", {
+
+    const payload = {
       fullName: fullName.trim(),
       phone: phone.trim(),
       status,
       unp,
-      fileName: file?.name,
-      fileSize: file?.size,
-    });
-    setLoading(false);
-    setSubmitted(true);
+      fileName: file.name,
+      fileSize: file.size,
+    };
+
+    window.setTimeout(() => {
+      console.log("Cleaner application:", payload);
+      setLoading(false);
+      setSubmitted(true);
+    }, 400);
   }
 
   if (submitted) {
@@ -759,6 +772,12 @@ function CleanerApplyModal({ onClose }: { onClose: () => void }) {
             24 часов) и пришлем вам секретную ссылку для входа в рабочий кабинет
             в SMS или Telegram.
           </div>
+          <a
+            href="/pro/dashboard"
+            className="flex min-h-11 w-full items-center justify-center rounded-2xl border border-line bg-plaque px-4 text-sm font-semibold text-foreground transition hover:bg-line"
+          >
+            Открыть демо кабинета специалиста
+          </a>
           <button
             type="button"
             onClick={onClose}
