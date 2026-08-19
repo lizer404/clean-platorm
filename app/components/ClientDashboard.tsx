@@ -109,9 +109,15 @@ function buildOrders(now: number): ClientOrder[] {
   ];
 }
 
+/**
+ * Review window: exactly 2 hours after the order becomes "Завершен".
+ * Example: if completedAt is 12:00, the button stays until 14:00 inclusive.
+ * After 14:00 (now > completedAt + 2h) the button is fully hidden.
+ */
 function canLeaveReview(order: ClientOrder, now: number) {
   if (order.status !== "completed" || !order.completedAt) return false;
-  return now - order.completedAt <= REVIEW_WINDOW_MS;
+  const deadline = order.completedAt + REVIEW_WINDOW_MS;
+  return now <= deadline;
 }
 
 function downloadReceipt(order: ClientOrder) {

@@ -886,27 +886,36 @@ export default function CleaningCalculator() {
             </div>
           )}
 
-          {/* Date picker cell */}
+          {/* Date picker cell — icon-only, accent calendar control */}
           <div ref={dateRef} className="relative">
             <button
               type="button"
               onClick={openDatePicker}
-              className="flex w-full items-center justify-between rounded-2xl bg-plaque px-4 py-3 text-left transition active:scale-[0.995]"
+              aria-label={
+                selectedDate
+                  ? `Дата уборки: ${formatSelectedDate(selectedDate)}`
+                  : "Выбрать дату уборки"
+              }
+              className="flex w-full flex-col items-center justify-center gap-1.5 rounded-2xl bg-plaque px-4 py-3.5 transition hover:bg-line/70 active:scale-[0.995]"
             >
-              <span>
-                <span className="block text-[11px] font-medium uppercase tracking-[0.14em] text-muted">
-                  Выбрать дату
-                </span>
-                <span className="mt-1 block text-[15px] font-semibold text-foreground">
-                  {formatSelectedDate(selectedDate)}
-                </span>
-              </span>
-              <span className="ml-3 flex h-9 w-9 items-center justify-center rounded-full bg-white text-brand shadow-sm">
-                <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
-                  <rect x="3" y="5" width="18" height="16" rx="2" />
+              <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-brand text-white shadow-[0_10px_22px_rgba(30,58,138,0.28)]">
+                <svg
+                  viewBox="0 0 24 24"
+                  className="h-8 w-8"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.9"
+                  aria-hidden
+                >
+                  <rect x="3" y="5" width="18" height="16" rx="2.5" />
                   <path d="M3 10h18M8 3v4M16 3v4" strokeLinecap="round" />
                 </svg>
               </span>
+              {selectedDate ? (
+                <span className="text-sm font-semibold text-foreground">
+                  {formatSelectedDate(selectedDate)}
+                </span>
+              ) : null}
             </button>
             <input
               ref={dateInputRef}
@@ -920,7 +929,7 @@ export default function CleaningCalculator() {
                 setDatePickerOpen(false);
                 resetSelection();
               }}
-              className={`absolute left-4 top-[calc(100%+6px)] z-30 rounded-xl border border-line bg-white px-3 py-2 text-sm shadow-lg outline-none ${
+              className={`absolute left-1/2 top-[calc(100%+6px)] z-30 -translate-x-1/2 rounded-xl border border-line bg-white px-3 py-2 text-sm shadow-lg outline-none ${
                 datePickerOpen ? "block" : "pointer-events-none sr-only"
               }`}
               aria-label="Дата уборки"

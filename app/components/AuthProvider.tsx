@@ -15,6 +15,7 @@ const AUTH_STORAGE_KEY = "cleanplatform.auth";
 
 type StoredAuth = {
   phone: string;
+  name?: string;
 };
 
 type AuthContextValue = {
@@ -22,7 +23,8 @@ type AuthContextValue = {
   isLoggedIn: boolean;
   authReady: boolean;
   userPhone: string | null;
-  login: (phone: string) => void;
+  userName: string | null;
+  login: (phone: string, name?: string) => void;
   logout: () => void;
   accountModalOpen: boolean;
   openAccountModal: (onSuccess?: () => void) => void;
@@ -41,20 +43,28 @@ function readStoredAuth(): StoredAuth | null {
     if (!raw) return null;
     const parsed = JSON.parse(raw) as StoredAuth;
     if (!parsed?.phone || typeof parsed.phone !== "string") return null;
-    return { phone: parsed.phone };
+    return {
+      phone: parsed.phone,
+      name:
+        typeof parsed.name === "string" && parsed.name.trim()
+          ? parsed.name.trim()
+          : undefined,
+    };
   } catch {
     return null;
   }
 }
 
-function writeStoredAuth(phone: string | null) {
+function writeStoredAuth(phone: string | null, name?: string | null) {
   if (typeof window === "undefined") return;
   try {
     if (!phone) {
       window.localStorage.removeItem(AUTH_STORAGE_KEY);
       return;
     }
-    window.localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify({ phone }));
+    const payload: StoredAuth = { phone };
+    if (name && name.trim()) payload.name = name.trim();
+    window.localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(payload));
   } catch {
     // ignore quota / private mode errors in prototype
   }
@@ -63,6 +73,7 @@ function writeStoredAuth(phone: string | null) {
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [userPhone, setUserPhone] = useState<string | null>(null);
+  const [userName, setUserName] = useState<string | null>(null);
   const [hydrated, setHydrated] = useState(false);
   const [accountModalOpen, setAccountModalOpen] = useState(false);
   const [cleanerModalOpen, setCleanerModalOpen] = useState(false);
@@ -73,15 +84,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (stored) {
       setIsAuthenticated(true);
       setUserPhone(stored.phone);
+      setUserName(stored.name ?? null);
     }
     setHydrated(true);
   }, []);
 
-  const login = useCallback((phone: string) => {
-    const normalized = phone.trim();
+  const login = useCallback((phone: string, name?: string) => {
+    const normalizedPhone = phone.trim();
+    const normalizedName = name?.trim() || null;
     setIsAuthenticated(true);
-    setUserPhone(normalized);
-    writeStoredAuth(normalized);
+    setUserPhone(normalizedPhone);
+    setUserName(normalizedName);
+    writeStoredAuth(normalizedPhone, normalizedName);
     setAccountModalOpen(false);
     setCleanerModalOpen(false);
     const next = onLoginSuccessRef.current;
@@ -92,6 +106,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = useCallback(() => {
     setIsAuthenticated(false);
     setUserPhone(null);
+    setUserName(null);
     writeStoredAuth(null);
   }, []);
 
@@ -114,6 +129,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isLoggedIn: hydrated ? isAuthenticated : false,
       authReady: hydrated,
       userPhone: hydrated ? userPhone : null,
+      userName: hydrated ? userName : null,
       login,
       logout,
       accountModalOpen,
@@ -134,6 +150,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       logout,
       openAccountModal,
       openCleanerModal,
+      userName,
       userPhone,
     ],
   );

@@ -79,10 +79,12 @@ function BelarusPhoneInput({
   value,
   onChange,
   id,
+  autoFocus,
 }: {
   value: string;
   onChange: (next: string) => void;
   id?: string;
+  autoFocus?: boolean;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -99,6 +101,19 @@ function BelarusPhoneInput({
     });
   }
 
+  useEffect(() => {
+    if (!autoFocus) return;
+    const input = inputRef.current;
+    if (!input) return;
+    const timers = [0, 50, 150].map((ms) =>
+      window.setTimeout(() => {
+        input.focus({ preventScroll: true });
+        placeCaretAfterPrefix();
+      }, ms),
+    );
+    return () => timers.forEach((id) => window.clearTimeout(id));
+  }, [autoFocus]);
+
   return (
     <input
       ref={inputRef}
@@ -106,6 +121,7 @@ function BelarusPhoneInput({
       type="tel"
       inputMode="tel"
       required
+      autoFocus={autoFocus}
       value={value}
       onChange={(event) => onChange(formatBelarusPhone(event.target.value))}
       onFocus={placeCaretAfterPrefix}
@@ -494,10 +510,11 @@ function AccountModal({
   onSuccess,
 }: {
   onClose: () => void;
-  onSuccess: (phone: string) => void;
+  onSuccess: (phone: string, name?: string) => void;
 }) {
   const [step, setStep] = useState<1 | 2>(1);
   const [phone, setPhone] = useState(PHONE_PREFIX);
+  const [name, setName] = useState("");
   const [agreed, setAgreed] = useState(false);
   const [code, setCode] = useState("");
   const [method, setMethod] = useState<AuthMethod>("sms");
@@ -534,7 +551,8 @@ function AccountModal({
     setCodeError(false);
     try {
       await verifyAuthCode(phone.trim(), nextCode);
-      onSuccess(phone.trim());
+      // Name is optional — empty string is fine for successful login
+      onSuccess(phone.trim(), name.trim() || undefined);
     } catch (err) {
       setCodeError(true);
       setError(err instanceof Error ? err.message : "Неверный код");
@@ -566,7 +584,28 @@ function AccountModal({
             <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted">
               Телефон
             </span>
-            <BelarusPhoneInput value={phone} onChange={setPhone} />
+            <BelarusPhoneInput
+              value={phone}
+              onChange={setPhone}
+              autoFocus
+            />
+          </label>
+
+          <label className="block space-y-2">
+            <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted">
+              Ваше имя{" "}
+              <span className="normal-case tracking-normal text-muted/80">
+                (необязательно)
+              </span>
+            </span>
+            <input
+              type="text"
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              placeholder="Как к вам обращаться"
+              autoComplete="given-name"
+              className="w-full rounded-2xl bg-plaque px-4 py-3.5 text-[15px] font-medium text-foreground outline-none ring-1 ring-transparent transition focus:bg-white focus:ring-mint/50"
+            />
           </label>
 
           <ConsentCheckbox
@@ -1065,8 +1104,8 @@ export default function SiteHeader() {
       {accountModalOpen && (
         <AccountModal
           onClose={closeAccountModal}
-          onSuccess={(phone) => {
-            login(phone);
+          onSuccess={(phone, name) => {
+            login(phone, name);
             router.push("/profile");
           }}
         />
