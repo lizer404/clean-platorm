@@ -778,7 +778,11 @@ function CleanerApplyModal({ onClose }: { onClose: () => void }) {
       onClose={onClose}
       wide
     >
-      <form onSubmit={onSubmit} className="animate-sheet max-h-[70vh] space-y-3.5 overflow-y-auto pr-0.5">
+      <form
+        onSubmit={onSubmit}
+        noValidate
+        className="animate-sheet max-h-[70vh] space-y-3.5 overflow-y-auto pr-0.5"
+      >
         <label className="block space-y-2">
           <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted">
             ФИО <span className="text-brand">*</span>
