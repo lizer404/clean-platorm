@@ -886,87 +886,111 @@ export default function CleaningCalculator() {
             </div>
           )}
 
-          {/* Date picker cell — icon-only, accent calendar control */}
-          <div ref={dateRef} className="relative">
-            <button
-              type="button"
-              onClick={openDatePicker}
-              aria-label={
-                selectedDate
-                  ? `Дата уборки: ${formatSelectedDate(selectedDate)}`
-                  : "Выбрать дату уборки"
-              }
-              className="flex w-full flex-col items-center justify-center gap-1.5 rounded-2xl bg-plaque px-4 py-3.5 transition hover:bg-line/70 active:scale-[0.995]"
-            >
-              <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-brand text-white shadow-[0_10px_22px_rgba(30,58,138,0.28)]">
-                <svg
-                  viewBox="0 0 24 24"
-                  className="h-8 w-8"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.9"
-                  aria-hidden
-                >
-                  <rect x="3" y="5" width="18" height="16" rx="2.5" />
-                  <path d="M3 10h18M8 3v4M16 3v4" strokeLinecap="round" />
-                </svg>
-              </span>
-              {selectedDate ? (
-                <span className="text-sm font-semibold text-foreground">
-                  {formatSelectedDate(selectedDate)}
-                </span>
-              ) : null}
-            </button>
-            <input
-              ref={dateInputRef}
-              type="date"
-              min={todayInputValue()}
-              value={selectedDate}
-              onChange={(event) => {
-                const next = event.target.value;
-                if (next && next < todayInputValue()) return;
-                setSelectedDate(next);
-                setDatePickerOpen(false);
-                resetSelection();
-              }}
-              className={`absolute left-1/2 top-[calc(100%+6px)] z-30 -translate-x-1/2 rounded-xl border border-line bg-white px-3 py-2 text-sm shadow-lg outline-none ${
-                datePickerOpen ? "block" : "pointer-events-none sr-only"
-              }`}
-              aria-label="Дата уборки"
-            />
-          </div>
+          {extrasOpen && (
+            <div className="animate-sheet rounded-2xl bg-plaque p-3">
+              <div className="grid grid-cols-2 gap-2.5">
+                {EXTRAS.map((extra) => {
+                  const active = extras.has(extra.id);
+                  return (
+                    <button
+                      key={extra.id}
+                      type="button"
+                      onClick={() => toggleExtra(extra.id)}
+                      className={`relative flex min-h-[100px] flex-col items-start justify-between rounded-2xl p-3 text-left transition-all duration-200 ${
+                        active
+                          ? "bg-white shadow-md ring-2 ring-mint"
+                          : "bg-white/80 shadow-sm hover:bg-white"
+                      }`}
+                    >
+                      <span className="text-brand">{extra.icon}</span>
+                      <span>
+                        <span className="block text-[13px] font-semibold leading-snug text-foreground">
+                          {extra.label}
+                        </span>
+                        <span className="mt-1 block text-xs text-muted">
+                          +{formatPrice(extra.price)} BYN
+                        </span>
+                      </span>
+                      <span
+                        className={`absolute right-2.5 top-2.5 flex h-7 w-7 items-center justify-center rounded-full text-lg font-medium transition ${
+                          active ? "bg-mint text-white" : "bg-plaque text-muted"
+                        }`}
+                      >
+                        {active ? "✓" : "+"}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
         </div>
       </div>
 
-      {/* Price + sort in one row */}
-      <div className="flex flex-col gap-2 rounded-2xl bg-panel px-3 py-3 shadow-[0_10px_28px_rgba(17,24,39,0.06)] sm:flex-row sm:items-center sm:justify-between sm:gap-3 sm:px-4">
-        <p className="min-w-0 flex-1 text-[13px] leading-snug text-muted">
-          Стоимость:{" "}
-          <span
-            key={`${minCleanerPrice}-${maxCleanerPrice}`}
-            className="price-pop font-semibold text-foreground"
+      {/* Calendar + sort + price — single horizontal row */}
+      <div className="flex flex-row items-center justify-between gap-2 rounded-2xl bg-panel px-2.5 py-2.5 shadow-[0_10px_28px_rgba(17,24,39,0.06)] sm:gap-3 sm:px-4 sm:py-3">
+        <div ref={dateRef} className="relative shrink-0">
+          <button
+            type="button"
+            onClick={openDatePicker}
+            aria-label={
+              selectedDate
+                ? `Дата уборки: ${formatSelectedDate(selectedDate)}`
+                : "Выбрать дату уборки"
+            }
+            title={
+              selectedDate ? formatSelectedDate(selectedDate) : "Выбрать дату"
+            }
+            className="flex h-12 w-12 items-center justify-center rounded-2xl bg-brand text-white shadow-[0_8px_18px_rgba(30,58,138,0.28)] transition hover:bg-brand-deep active:scale-[0.97] sm:h-14 sm:w-14"
           >
-            от {formatPrice(minCleanerPrice)} до {formatPrice(maxCleanerPrice)} BYN
-          </span>
-        </p>
+            <svg
+              viewBox="0 0 24 24"
+              className="h-7 w-7 sm:h-8 sm:w-8"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.9"
+              aria-hidden
+            >
+              <rect x="3" y="5" width="18" height="16" rx="2.5" />
+              <path d="M3 10h18M8 3v4M16 3v4" strokeLinecap="round" />
+            </svg>
+          </button>
+          <input
+            ref={dateInputRef}
+            type="date"
+            min={todayInputValue()}
+            value={selectedDate}
+            onChange={(event) => {
+              const next = event.target.value;
+              if (next && next < todayInputValue()) return;
+              setSelectedDate(next);
+              setDatePickerOpen(false);
+              resetSelection();
+            }}
+            className={`absolute left-0 top-[calc(100%+6px)] z-30 rounded-xl border border-line bg-white px-3 py-2 text-sm shadow-lg outline-none ${
+              datePickerOpen ? "block" : "pointer-events-none sr-only"
+            }`}
+            aria-label="Дата уборки"
+          />
+        </div>
 
-        <div ref={sortRef} className="relative shrink-0 sm:max-w-[52%]">
+        <div ref={sortRef} className="relative min-w-0 shrink">
           <button
             type="button"
             onClick={() => setSortOpen((open) => !open)}
-            className="flex w-full items-center justify-between gap-2 rounded-xl bg-plaque px-3 py-2.5 text-left transition active:scale-[0.995] sm:min-w-[220px]"
+            className="flex max-w-full items-center gap-1.5 rounded-xl bg-plaque px-3 py-2.5 text-left transition active:scale-[0.995] sm:gap-2 sm:px-3.5"
           >
             <span className="truncate text-sm font-semibold text-foreground">
-              {selectedSort.label}
+              По цене
             </span>
-            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white">
+            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white sm:h-7 sm:w-7">
               <ChevronDown open={sortOpen} />
             </span>
           </button>
 
           {sortOpen && (
-            <div className="animate-sheet absolute left-0 right-0 top-[calc(100%+8px)] z-30 overflow-hidden rounded-2xl bg-white p-1.5 shadow-[0_16px_40px_rgba(17,24,39,0.14)] ring-1 ring-black/5 sm:left-auto sm:w-[280px]">
+            <div className="animate-sheet absolute left-1/2 top-[calc(100%+8px)] z-30 w-[min(280px,70vw)] -translate-x-1/2 overflow-hidden rounded-2xl bg-white p-1.5 shadow-[0_16px_40px_rgba(17,24,39,0.14)] ring-1 ring-black/5 sm:left-0 sm:translate-x-0">
               {SORT_OPTIONS.map((option) => {
                 const active = option.id === sortMode;
                 return (
@@ -991,6 +1015,13 @@ export default function CleaningCalculator() {
             </div>
           )}
         </div>
+
+        <p
+          key={minCleanerPrice}
+          className="price-pop min-w-0 shrink-0 text-right text-sm font-semibold tabular-nums text-foreground sm:text-base"
+        >
+          от {formatPrice(minCleanerPrice)} BYN
+        </p>
       </div>
 
       {/* Find cleaners CTA */}
