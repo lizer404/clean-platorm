@@ -6,6 +6,7 @@ import {
   useLayoutEffect,
   useRef,
   useState,
+  type FormEvent,
   type ReactNode,
 } from "react";
 import { usePathname, useRouter } from "next/navigation";
@@ -158,11 +159,13 @@ function ModalShell({
   subtitle,
   onClose,
   children,
+  wide,
 }: {
   title: string;
-  subtitle: string;
+  subtitle?: string;
   onClose: () => void;
   children: ReactNode;
+  wide?: boolean;
 }) {
   const titleId = useId();
 
@@ -191,7 +194,9 @@ function ModalShell({
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        className="animate-sheet relative z-10 w-full max-w-md rounded-3xl bg-panel p-5 shadow-[0_24px_60px_rgba(17,24,39,0.2)] sm:p-6"
+        className={`animate-sheet relative z-10 w-full rounded-3xl bg-panel p-5 shadow-[0_24px_60px_rgba(17,24,39,0.2)] sm:p-6 ${
+          wide ? "max-w-lg" : "max-w-md"
+        }`}
       >
         <div className="mb-5 flex items-start justify-between gap-3">
           <div>
@@ -201,7 +206,9 @@ function ModalShell({
             >
               {title}
             </h2>
-            <p className="mt-1 text-sm text-muted">{subtitle}</p>
+            {subtitle ? (
+              <p className="mt-1 text-sm text-muted">{subtitle}</p>
+            ) : null}
           </div>
           <button
             type="button"
@@ -676,209 +683,268 @@ function AccountModal({
   );
 }
 
-function CleanerApplyModal({
-  onClose,
-  onSuccess,
-}: {
-  onClose: () => void;
-  onSuccess: (phone: string) => void;
-}) {
-  const [step, setStep] = useState<1 | 2>(1);
-  const [name, setName] = useState("");
-  const [phone, setPhone] = useState(PHONE_PREFIX);
-  const [experience, setExperience] = useState("");
-  const [unp, setUnp] = useState("");
-  const [agreed, setAgreed] = useState(false);
-  const [code, setCode] = useState("");
-  const [method, setMethod] = useState<AuthMethod>("sms");
-  const [loading, setLoading] = useState(false);
-  const [verifying, setVerifying] = useState(false);
-  const [error, setError] = useState("");
-  const [codeError, setCodeError] = useState(false);
-  const [timerKey, setTimerKey] = useState(0);
-  const verifyingRef = useRef(false);
+type CleanerStatus = "ip" | "npd";
 
-  async function requestCode(nextMethod: AuthMethod) {
-    if (
-      !agreed ||
-      !name.trim() ||
-      !experience.trim() ||
-      unp.length < 9 ||
-      extractLocalDigits(phone).length < 9 ||
-      loading
-    ) {
+function CleanerApplyModal({ onClose }: { onClose: () => void }) {
+  const [submitted, setSubmitted] = useState(false);
+  const [fullName, setFullName] = useState("");
+  const [phone, setPhone] = useState(PHONE_PREFIX);
+  const [status, setStatus] = useState<CleanerStatus | "">("");
+  const [statusOpen, setStatusOpen] = useState(false);
+  const [unp, setUnp] = useState("");
+  const [file, setFile] = useState<File | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const statusRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    function onDocClick(event: MouseEvent) {
+      if (!statusRef.current?.contains(event.target as Node)) {
+        setStatusOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", onDocClick);
+    return () => document.removeEventListener("mousedown", onDocClick);
+  }, []);
+
+  const statusLabel =
+    status === "ip"
+      ? "Индивидуальный предприниматель (ИП)"
+      : status === "npd"
+        ? "Плательщик НПД (Самозанятый)"
+        : "Выберите статус";
+
+  const canSubmit =
+    fullName.trim().length > 1 &&
+    extractLocalDigits(phone).length >= 9 &&
+    (status === "ip" || status === "npd") &&
+    unp.length === 9 &&
+    file !== null &&
+    !loading;
+
+  async function onSubmit(event: FormEvent) {
+    event.preventDefault();
+    if (!canSubmit) {
+      setError("Заполните все обязательные поля и прикрепите документ");
       return;
     }
     setLoading(true);
     setError("");
-    setCodeError(false);
-    try {
-      await sendAuthCode(phone.trim(), nextMethod);
-      setMethod(nextMethod);
-      setStep(2);
-      setCode("");
-      setTimerKey((value) => value + 1);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Ошибка отправки");
-    } finally {
-      setLoading(false);
-    }
+    // Mock moderation submit — no real backend yet
+    await new Promise((resolve) => window.setTimeout(resolve, 500));
+    console.log("Cleaner application:", {
+      fullName: fullName.trim(),
+      phone: phone.trim(),
+      status,
+      unp,
+      fileName: file?.name,
+      fileSize: file?.size,
+    });
+    setLoading(false);
+    setSubmitted(true);
   }
 
-  async function verifyCode(nextCode: string) {
-    if (nextCode.length !== 4 || verifyingRef.current) return;
-    verifyingRef.current = true;
-    setVerifying(true);
-    setError("");
-    setCodeError(false);
-    try {
-      await verifyAuthCode(phone.trim(), nextCode);
-      onSuccess(phone.trim());
-    } catch (err) {
-      setCodeError(true);
-      setError(err instanceof Error ? err.message : "Неверный код");
-      setCode("");
-    } finally {
-      verifyingRef.current = false;
-      setVerifying(false);
-    }
+  if (submitted) {
+    return (
+      <ModalShell
+        title="Заявка принята"
+        subtitle="Спасибо, что хотите работать с CleanPlatform."
+        onClose={onClose}
+        wide
+      >
+        <div className="animate-sheet space-y-5">
+          <div className="rounded-2xl bg-mint-soft/70 px-4 py-4 text-sm leading-relaxed text-foreground">
+            Ваша заявка принята! Мы проверим ваши данные (обычно это занимает до
+            24 часов) и пришлем вам секретную ссылку для входа в рабочий кабинет
+            в SMS или Telegram.
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex min-h-12 w-full items-center justify-center rounded-2xl bg-brand px-4 py-3.5 text-sm font-bold uppercase tracking-[0.04em] text-white transition hover:bg-brand-deep"
+          >
+            Закрыть
+          </button>
+        </div>
+      </ModalShell>
+    );
   }
-
-  const canSend =
-    agreed &&
-    name.trim().length > 0 &&
-    experience.trim().length > 0 &&
-    unp.length >= 9 &&
-    extractLocalDigits(phone).length >= 9 &&
-    !loading;
 
   return (
     <ModalShell
-      title={step === 1 ? "Стать клинером" : "Ввод кода"}
-      subtitle={
-        step === 1
-          ? "Оставьте заявку — подтвердим телефон через Telegram или SMS."
-          : `Код отправлен на ${phone.trim()} через ${
-              method === "telegram" ? "Telegram" : "SMS"
-            }. Для теста введите 1234.`
-      }
+      title="Присоединяйтесь к нашей команде"
+      subtitle="Заполните анкету кандидата — мы проверим данные и свяжемся с вами."
       onClose={onClose}
+      wide
     >
-      {step === 1 ? (
-        <div className="animate-sheet space-y-3.5">
-          <label className="block space-y-2">
-            <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted">
-              Имя
-            </span>
-            <input
-              type="text"
-              required
-              value={name}
-              onChange={(event) => setName(event.target.value)}
-              placeholder="Как к вам обращаться"
-              className="w-full rounded-2xl bg-plaque px-4 py-3.5 text-[15px] font-medium text-foreground outline-none ring-1 ring-transparent transition focus:bg-white focus:ring-mint/50"
-            />
-          </label>
-          <label className="block space-y-2">
-            <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted">
-              Телефон
-            </span>
-            <BelarusPhoneInput value={phone} onChange={setPhone} />
-          </label>
-          <label className="block space-y-2">
-            <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted">
-              Опыт работы
-            </span>
-            <textarea
-              required
-              rows={5}
-              value={experience}
-              onChange={(event) => setExperience(event.target.value)}
-              placeholder="Сколько лет в клининге, какие объекты, какая химия, какие расходники, каков планируемый график работы?"
-              className="w-full resize-none rounded-2xl bg-plaque px-4 py-3.5 text-[15px] font-medium leading-relaxed text-foreground outline-none ring-1 ring-transparent transition focus:bg-white focus:ring-mint/50"
-            />
-          </label>
-          <label className="block space-y-2">
-            <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted">
-              УНП
-            </span>
-            <input
-              type="text"
-              required
-              inputMode="numeric"
-              value={unp}
-              onChange={(event) =>
-                setUnp(event.target.value.replace(/[^\d]/g, "").slice(0, 9))
-              }
-              placeholder="9 цифр"
-              className="w-full rounded-2xl bg-plaque px-4 py-3.5 text-[15px] font-medium text-foreground outline-none ring-1 ring-transparent transition focus:bg-white focus:ring-mint/50"
-            />
-          </label>
-
-          <ConsentCheckbox
-            id="cleaner-privacy-consent"
-            checked={agreed}
-            onChange={setAgreed}
+      <form onSubmit={onSubmit} className="animate-sheet max-h-[70vh] space-y-3.5 overflow-y-auto pr-0.5">
+        <label className="block space-y-2">
+          <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted">
+            ФИО <span className="text-brand">*</span>
+          </span>
+          <input
+            type="text"
+            required
+            value={fullName}
+            onChange={(event) => setFullName(event.target.value)}
+            placeholder="Иванов Иван Иванович"
+            autoComplete="name"
+            className="w-full rounded-2xl bg-plaque px-4 py-3.5 text-[15px] font-medium text-foreground outline-none ring-1 ring-transparent transition focus:bg-white focus:ring-mint/50"
           />
+        </label>
 
-          {error ? (
-            <p className="text-center text-sm font-medium text-red-500">{error}</p>
-          ) : null}
+        <label className="block space-y-2">
+          <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted">
+            Номер телефона <span className="text-brand">*</span>
+          </span>
+          <BelarusPhoneInput value={phone} onChange={setPhone} autoFocus />
+        </label>
 
-          <AuthSendActions
-            canSend={canSend}
-            loading={loading}
-            onSend={requestCode}
-          />
-        </div>
-      ) : (
-        <div className="animate-sheet space-y-4">
-          <div className="space-y-2">
-            <span className="block text-center text-[11px] font-medium uppercase tracking-[0.14em] text-muted">
-              Код подтверждения
-            </span>
-            <OtpCodeInput
-              key={`cleaner-otp-${timerKey}`}
-              value={code}
-              onChange={(next) => {
-                setCode(next);
-                if (codeError) setCodeError(false);
-                if (error) setError("");
-              }}
-              onComplete={verifyCode}
-              disabled={verifying}
-              hasError={codeError}
-            />
-          </div>
-
-          {error ? (
-            <p className="text-center text-sm font-medium text-red-500">{error}</p>
-          ) : verifying ? (
-            <p className="text-center text-sm font-medium text-muted">
-              Проверяем код…
-            </p>
-          ) : null}
-
-          <ResendTimer
-            key={timerKey}
-            loading={loading}
-            onResend={() => requestCode(method)}
-          />
-
+        <div ref={statusRef} className="relative space-y-2">
+          <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted">
+            Ваш статус <span className="text-brand">*</span>
+          </span>
           <button
             type="button"
-            onClick={() => {
-              setStep(1);
-              setCode("");
-              setError("");
-              setCodeError(false);
-            }}
-            className="w-full text-center text-sm font-medium text-muted hover:text-foreground"
+            onClick={() => setStatusOpen((open) => !open)}
+            className="flex w-full items-center justify-between rounded-2xl bg-plaque px-4 py-3.5 text-left transition active:scale-[0.995]"
           >
-            Назад к заявке
+            <span
+              className={`text-[15px] font-medium ${
+                status ? "text-foreground" : "text-muted"
+              }`}
+            >
+              {statusLabel}
+            </span>
+            <span className="ml-3 flex h-8 w-8 items-center justify-center rounded-full bg-white shadow-sm">
+              <ChevronDownIcon />
+            </span>
+          </button>
+          {statusOpen ? (
+            <div className="absolute left-0 right-0 top-[calc(100%+6px)] z-20 overflow-hidden rounded-2xl bg-white p-1.5 shadow-[0_16px_40px_rgba(17,24,39,0.14)] ring-1 ring-black/5">
+              {(
+                [
+                  {
+                    id: "ip" as const,
+                    label: "Индивидуальный предприниматель (ИП)",
+                  },
+                  {
+                    id: "npd" as const,
+                    label: "Плательщик НПД (Самозанятый)",
+                  },
+                ] as const
+              ).map((option) => (
+                <button
+                  key={option.id}
+                  type="button"
+                  onClick={() => {
+                    setStatus(option.id);
+                    setStatusOpen(false);
+                  }}
+                  className={`flex w-full items-center justify-between rounded-xl px-3.5 py-3 text-left text-sm font-medium transition ${
+                    status === option.id
+                      ? "bg-brand-soft text-brand"
+                      : "text-foreground hover:bg-plaque"
+                  }`}
+                >
+                  {option.label}
+                  {status === option.id ? <span>✓</span> : null}
+                </button>
+              ))}
+            </div>
+          ) : null}
+        </div>
+
+        <label className="block space-y-2">
+          <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted">
+            УНП <span className="text-brand">*</span>
+          </span>
+          <input
+            type="text"
+            required
+            inputMode="numeric"
+            value={unp}
+            onChange={(event) =>
+              setUnp(event.target.value.replace(/[^\d]/g, "").slice(0, 9))
+            }
+            placeholder="9 цифр"
+            maxLength={9}
+            className="w-full rounded-2xl bg-plaque px-4 py-3.5 text-[15px] font-medium tabular-nums text-foreground outline-none ring-1 ring-transparent transition focus:bg-white focus:ring-mint/50"
+          />
+          <span className="block text-xs text-muted">
+            Ровно 9 цифр · сейчас {unp.length}/9
+          </span>
+        </label>
+
+        <div className="space-y-2">
+          <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted">
+            Документ <span className="text-brand">*</span>
+          </span>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*,.pdf"
+            className="sr-only"
+            onChange={(event) => {
+              const next = event.target.files?.[0] ?? null;
+              setFile(next);
+              if (error) setError("");
+            }}
+          />
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            className={`flex w-full flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed px-4 py-6 text-center transition ${
+              file
+                ? "border-mint bg-mint-soft/40"
+                : "border-line bg-plaque/60 hover:border-brand/40 hover:bg-plaque"
+            }`}
+          >
+            <span className="flex h-11 w-11 items-center justify-center rounded-full bg-white text-brand shadow-sm">
+              <svg
+                viewBox="0 0 24 24"
+                className="h-5 w-5"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                aria-hidden
+              >
+                <path
+                  d="M21.4 12.6 12.8 21a5 5 0 0 1-7.1-7.1l9.2-9.2a3.5 3.5 0 0 1 5 5l-9.2 9.2a2 2 0 0 1-2.8-2.8l8.5-8.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </span>
+            <span className="max-w-[28ch] text-sm font-medium leading-snug text-foreground">
+              {file
+                ? file.name
+                : "Загрузите фото свидетельства ИП или скриншот из приложения Налог на проф. доход"}
+            </span>
+            <span className="text-xs text-muted">
+              {file ? "Нажмите, чтобы заменить файл" : "JPG, PNG или PDF"}
+            </span>
           </button>
         </div>
-      )}
+
+        {error ? (
+          <p className="text-center text-sm font-medium text-red-500">{error}</p>
+        ) : null}
+
+        <button
+          type="submit"
+          disabled={!canSubmit}
+          className="flex min-h-12 w-full items-center justify-center rounded-2xl bg-brand px-4 py-3.5 text-sm font-bold uppercase tracking-[0.04em] text-white transition hover:bg-brand-deep disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none"
+        >
+          {loading ? "Отправляем…" : "Отправить заявку на модерацию"}
+        </button>
+
+        <p className="px-1 text-center text-[11px] leading-relaxed text-muted">
+          Нажимая кнопку, вы соглашаетесь на обработку персональных данных в
+          соответствии с политикой конфиденциальности CleanPlatform.
+        </p>
+      </form>
     </ModalShell>
   );
 }
@@ -1111,7 +1177,7 @@ export default function SiteHeader() {
         />
       )}
       {cleanerModalOpen && (
-        <CleanerApplyModal onClose={closeCleanerModal} onSuccess={login} />
+        <CleanerApplyModal onClose={closeCleanerModal} />
       )}
     </>
   );
