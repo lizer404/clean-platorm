@@ -449,7 +449,6 @@ export default function CleaningCalculator() {
   const dateInputRef = useRef<HTMLInputElement>(null);
 
   const selectedType = CLEANING_OPTIONS.find((item) => item.id === cleaningType)!;
-  const selectedSort = SORT_OPTIONS.find((item) => item.id === sortMode)!;
   const selectedExtras = EXTRAS.filter((item) => extras.has(item.id));
 
   const baseJob = useMemo(() => {
@@ -475,11 +474,6 @@ export default function CleaningCalculator() {
 
   const minCleanerPrice = useMemo(
     () => Math.min(...cleanerOffers.map((cleaner) => cleaner.price)),
-    [cleanerOffers],
-  );
-
-  const maxCleanerPrice = useMemo(
-    () => Math.max(...cleanerOffers.map((cleaner) => cleaner.price)),
     [cleanerOffers],
   );
 
