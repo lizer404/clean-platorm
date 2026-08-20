@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
 
 type PresenceStatus = "active" | "dnd";
 type RateMode = "hourly" | "mixed";
+type AfterRepairUnit = "hour" | "sqm";
 
 type RadarOrder = {
   id: string;
@@ -38,7 +39,126 @@ type TodayJob = {
   y: number;
 };
 
+type Badge = {
+  id: string;
+  title: string;
+  condition: string;
+  icon: string;
+  earned: boolean;
+  progress?: string;
+};
+
+type ExtraService = {
+  id: string;
+  label: string;
+  price: string;
+  enabled: boolean;
+  custom?: boolean;
+};
+
 const COMMISSION = 0.2;
+
+const CITIES = ["Минск", "Брест", "Гомель", "Гродно", "Витебск", "Могилёв"] as const;
+
+const BADGES: Badge[] = [
+  {
+    id: "b1",
+    title: "Первый шаг",
+    condition: "Выполнено 10 заказов",
+    icon: "🏁",
+    earned: true,
+    progress: "10/10",
+  },
+  {
+    id: "b2",
+    title: "Безупречный старт",
+    condition: "Получено 5 отзывов на 5⭐",
+    icon: "⭐",
+    earned: true,
+    progress: "5/5",
+  },
+  {
+    id: "b3",
+    title: "Мастер чистоты",
+    condition: "Выполнено 50 уборок",
+    icon: "🏆",
+    earned: true,
+    progress: "50/50",
+  },
+  {
+    id: "b4",
+    title: "Любимчик клиентов",
+    condition: "10 повторных вызовов от одних и тех же клиентов",
+    icon: "❤️",
+    earned: true,
+    progress: "10/10",
+  },
+  {
+    id: "b5",
+    title: "Герой ремонта",
+    condition: "Успешно выполнено 5 уборок после ремонта",
+    icon: "🔧",
+    earned: false,
+    progress: "3/5",
+  },
+  {
+    id: "b6",
+    title: "Укротитель пыли",
+    condition: "Выполнено 10 генеральных уборок",
+    icon: "🧹",
+    earned: true,
+    progress: "10/10",
+  },
+  {
+    id: "b7",
+    title: "Маг окон",
+    condition: "Выполнено 20 заказов с доп. услугой мытья окон",
+    icon: "🪟",
+    earned: false,
+    progress: "14/20",
+  },
+  {
+    id: "b8",
+    title: "Повелитель времени",
+    condition: "20 заказов подряд без опозданий",
+    icon: "⏱️",
+    earned: false,
+    progress: "12/20",
+  },
+  {
+    id: "b9",
+    title: "Всегда готов",
+    condition: "Индекс активности 100% за месяц",
+    icon: "⚡",
+    earned: false,
+    progress: "95%",
+  },
+  {
+    id: "b10",
+    title: "Легенда сервиса",
+    condition: "Выполнено 100 заказов на платформе",
+    icon: "👑",
+    earned: false,
+    progress: "67/100",
+  },
+];
+
+const AVG_TIMES = [
+  { rooms: "1-комн", maint: "1.5–2 ч", general: "3–4 ч" },
+  { rooms: "2-комн", maint: "2–2.5 ч", general: "4–5 ч" },
+  { rooms: "3-комн", maint: "2.5–3.5 ч", general: "5–7 ч" },
+  { rooms: "4-комн", maint: "3.5–4.5 ч", general: "7–9 ч" },
+  { rooms: "5-комн", maint: "4.5–6 ч", general: "9–12 ч" },
+];
+
+const DEFAULT_EXTRAS: ExtraService[] = [
+  { id: "windows", label: "Мытье окон", price: "20", enabled: true },
+  { id: "fridge", label: "Холодильник", price: "15", enabled: true },
+  { id: "oven", label: "Духовка", price: "12", enabled: true },
+  { id: "microwave", label: "Микроволновка", price: "8", enabled: false },
+  { id: "balcony", label: "Балкон", price: "18", enabled: false },
+  { id: "ironing", label: "Глажка белья", price: "25", enabled: false },
+];
 
 const REVIEWS: Review[] = [
   {
@@ -171,10 +291,18 @@ function Panel({
 }) {
   return (
     <section
-      className={`rounded-2xl bg-white p-4 shadow-[0_8px_24px_rgba(15,23,42,0.04)] ring-1 ring-slate-200/70 sm:p-5 ${className}`}
+      className={`rounded-xl bg-white p-3 shadow-[0_8px_24px_rgba(15,23,42,0.04)] ring-1 ring-slate-200/70 sm:rounded-2xl sm:p-5 ${className}`}
     >
       {children}
     </section>
+  );
+}
+
+function Alert({ children }: { children: ReactNode }) {
+  return (
+    <p className="rounded-lg bg-rose-50 px-2.5 py-2 text-[11px] font-semibold leading-relaxed text-rose-700 ring-1 ring-rose-100 sm:rounded-xl sm:px-3 sm:py-2.5 sm:text-xs">
+      {children}
+    </p>
   );
 }
 
@@ -190,7 +318,7 @@ function Modal({
   wide?: boolean;
 }) {
   return (
-    <div className="fixed inset-0 z-[120] flex items-end justify-center bg-slate-900/40 p-4 backdrop-blur-[2px] sm:items-center">
+    <div className="fixed inset-0 z-[120] flex items-end justify-center bg-slate-900/40 p-3 backdrop-blur-[2px] sm:items-center sm:p-4">
       <button
         type="button"
         aria-label="Закрыть"
@@ -198,18 +326,18 @@ function Modal({
         onClick={onClose}
       />
       <div
-        className={`relative z-10 max-h-[85vh] w-full overflow-y-auto rounded-3xl bg-white p-5 shadow-2xl sm:p-6 ${
+        className={`relative z-10 max-h-[88vh] w-full overflow-y-auto rounded-2xl bg-white p-4 shadow-2xl sm:rounded-3xl sm:p-6 ${
           wide ? "max-w-xl" : "max-w-md"
         }`}
       >
-        <div className="mb-4 flex items-start justify-between gap-3">
-          <h3 className="font-[family-name:var(--font-unbounded)] text-lg font-semibold text-slate-900">
+        <div className="mb-3 flex items-start justify-between gap-3 sm:mb-4">
+          <h3 className="font-[family-name:var(--font-unbounded)] text-base font-semibold text-slate-900 sm:text-lg">
             {title}
           </h3>
           <button
             type="button"
             onClick={onClose}
-            className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-slate-600"
+            className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-slate-600 sm:h-9 sm:w-9"
             aria-label="Закрыть"
           >
             ×
@@ -221,8 +349,286 @@ function Modal({
   );
 }
 
+function FullScreenModal({
+  title,
+  onClose,
+  children,
+}: {
+  title: string;
+  onClose: () => void;
+  children: ReactNode;
+}) {
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.body.style.overflow = prev;
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [onClose]);
+
+  return (
+    <div className="fixed inset-0 z-[130] flex flex-col bg-white lg:hidden">
+      <div className="flex shrink-0 items-center justify-between gap-3 border-b border-slate-200 px-3 py-3">
+        <h3 className="min-w-0 truncate font-[family-name:var(--font-unbounded)] text-base font-semibold text-slate-900">
+          {title}
+        </h3>
+        <button
+          type="button"
+          onClick={onClose}
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-100 text-lg font-bold leading-none text-slate-700"
+          aria-label="Закрыть"
+        >
+          ×
+        </button>
+      </div>
+      <div className="min-h-0 flex-1 overflow-y-auto p-3 pb-8">{children}</div>
+    </div>
+  );
+}
+
+function ScheduleBlock({
+  monthLabel,
+  calendarMonth,
+  setCalendarMonth,
+  calendarDays,
+  selectedDay,
+  setSelectedDay,
+  availableTimes,
+  slotFrom,
+  setSlotFrom,
+  slotTo,
+  setSlotTo,
+  addSlot,
+  freeSlots,
+}: {
+  monthLabel: string;
+  calendarMonth: Date;
+  setCalendarMonth: (d: Date) => void;
+  calendarDays: Array<{ date: Date | null; disabled: boolean }>;
+  selectedDay: Date | null;
+  setSelectedDay: (d: Date | null) => void;
+  availableTimes: string[];
+  slotFrom: string;
+  setSlotFrom: (v: string) => void;
+  slotTo: string;
+  setSlotTo: (v: string) => void;
+  addSlot: () => void;
+  freeSlots: string[];
+}) {
+  return (
+    <div>
+      <p className="font-[family-name:var(--font-unbounded)] text-sm font-semibold text-slate-900 sm:text-base">
+        Мое расписание
+      </p>
+      <div className="mt-2 sm:mt-3">
+        <Alert>
+          Указывайте время готовности начать уборку (без учета времени на
+          дорогу)
+        </Alert>
+      </div>
+
+      <div className="mt-3 flex items-center justify-between gap-2 sm:mt-4">
+        <button
+          type="button"
+          onClick={() =>
+            setCalendarMonth(
+              new Date(
+                calendarMonth.getFullYear(),
+                calendarMonth.getMonth() - 1,
+                1,
+              ),
+            )
+          }
+          className="rounded-lg bg-slate-100 px-2 py-1 text-sm font-semibold text-slate-600 sm:px-2.5 sm:py-1.5"
+        >
+          ←
+        </button>
+        <p className="text-xs font-semibold capitalize text-slate-800 sm:text-sm">
+          {monthLabel}
+        </p>
+        <button
+          type="button"
+          onClick={() =>
+            setCalendarMonth(
+              new Date(
+                calendarMonth.getFullYear(),
+                calendarMonth.getMonth() + 1,
+                1,
+              ),
+            )
+          }
+          className="rounded-lg bg-slate-100 px-2 py-1 text-sm font-semibold text-slate-600 sm:px-2.5 sm:py-1.5"
+        >
+          →
+        </button>
+      </div>
+
+      <div className="mt-2 grid grid-cols-7 gap-0.5 text-center text-[9px] font-semibold uppercase tracking-wide text-slate-400 sm:mt-3 sm:gap-1 sm:text-[10px]">
+        {["пн", "вт", "ср", "чт", "пт", "сб", "вс"].map((day) => (
+          <span key={day}>{day}</span>
+        ))}
+      </div>
+      <div className="mt-1 grid grid-cols-7 gap-0.5 sm:gap-1">
+        {calendarDays.map((cell, index) => {
+          if (!cell.date) {
+            return <span key={`empty-${index}`} className="h-8 sm:h-9" />;
+          }
+          const selected =
+            selectedDay &&
+            cell.date.toDateString() === selectedDay.toDateString();
+          return (
+            <button
+              key={cell.date.toISOString()}
+              type="button"
+              disabled={cell.disabled}
+              onClick={() => setSelectedDay(cell.date)}
+              className={`h-8 rounded-md text-xs font-semibold tabular-nums transition sm:h-9 sm:rounded-lg sm:text-sm ${
+                cell.disabled
+                  ? "cursor-not-allowed text-slate-300"
+                  : selected
+                    ? "bg-[#1e3a8a] text-white"
+                    : "bg-slate-50 text-slate-700 hover:bg-slate-100"
+              }`}
+            >
+              {cell.date.getDate()}
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="mt-3 grid grid-cols-2 gap-2 sm:mt-4">
+        <label className="block">
+          <span className="text-[11px] font-medium text-slate-500 sm:text-xs">
+            С
+          </span>
+          <select
+            value={
+              availableTimes.includes(slotFrom)
+                ? slotFrom
+                : (availableTimes[0] ?? "")
+            }
+            onChange={(event) => setSlotFrom(event.target.value)}
+            disabled={availableTimes.length === 0}
+            className="mt-1 w-full rounded-lg bg-slate-50 px-2.5 py-2 text-sm font-semibold outline-none ring-1 ring-slate-200 disabled:cursor-not-allowed disabled:opacity-50 sm:rounded-xl sm:px-3 sm:py-2.5"
+          >
+            {availableTimes.length === 0 ? (
+              <option value="">Нет доступных часов</option>
+            ) : (
+              availableTimes.map((time) => (
+                <option key={`from-${time}`} value={time}>
+                  {time}
+                </option>
+              ))
+            )}
+          </select>
+        </label>
+        <label className="block">
+          <span className="text-[11px] font-medium text-slate-500 sm:text-xs">
+            По
+          </span>
+          <select
+            value={
+              availableTimes.includes(slotTo)
+                ? slotTo
+                : (availableTimes[availableTimes.length - 1] ?? "")
+            }
+            onChange={(event) => setSlotTo(event.target.value)}
+            disabled={availableTimes.length === 0}
+            className="mt-1 w-full rounded-lg bg-slate-50 px-2.5 py-2 text-sm font-semibold outline-none ring-1 ring-slate-200 disabled:cursor-not-allowed disabled:opacity-50 sm:rounded-xl sm:px-3 sm:py-2.5"
+          >
+            {availableTimes.length === 0 ? (
+              <option value="">Нет доступных часов</option>
+            ) : (
+              availableTimes.map((time) => (
+                <option key={`to-${time}`} value={time}>
+                  {time}
+                </option>
+              ))
+            )}
+          </select>
+        </label>
+      </div>
+      <button
+        type="button"
+        onClick={addSlot}
+        className="mt-2.5 w-full rounded-xl bg-[#1e3a8a] px-3 py-2.5 text-sm font-bold text-white transition hover:bg-[#152a66] sm:mt-3"
+      >
+        Добавить свободный интервал
+      </button>
+
+      <ul className="mt-2.5 space-y-1.5 sm:mt-3">
+        {freeSlots.map((slot) => (
+          <li
+            key={slot}
+            className="rounded-lg bg-slate-50 px-2.5 py-1.5 text-[11px] font-medium text-slate-600 sm:px-3 sm:py-2 sm:text-xs"
+          >
+            {slot}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function MapBlock() {
+  return (
+    <div>
+      <p className="font-[family-name:var(--font-unbounded)] text-sm font-semibold text-slate-900 sm:text-base">
+        Карта заказов
+      </p>
+      <p className="mt-0.5 text-[11px] text-slate-500 sm:mt-1 sm:text-xs">
+        Маршруты на сегодня
+      </p>
+
+      <div className="relative mt-3 h-48 overflow-hidden rounded-xl bg-[linear-gradient(135deg,#dbe7f5_0%,#e8eef8_45%,#d4e4d8_100%)] ring-1 ring-slate-200 sm:mt-4 sm:h-56 sm:rounded-2xl">
+        <div className="absolute inset-0 opacity-40 [background-image:linear-gradient(#94a3b8_1px,transparent_1px),linear-gradient(90deg,#94a3b8_1px,transparent_1px)] [background-size:28px_28px]" />
+        <p className="absolute left-2.5 top-2.5 rounded-full bg-white/90 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-slate-500 sm:left-3 sm:top-3 sm:px-2.5 sm:py-1 sm:text-[10px]">
+          Карта · заглушка
+        </p>
+        {TODAY_JOBS.map((job, index) => (
+          <span
+            key={job.id}
+            className="absolute flex h-7 w-7 -translate-x-1/2 -translate-y-full items-center justify-center rounded-full bg-[#1e3a8a] text-[11px] font-bold text-white shadow-md sm:h-8 sm:w-8 sm:text-xs"
+            style={{ left: `${job.x}%`, top: `${job.y}%` }}
+            title={job.address}
+          >
+            {index + 1}
+          </span>
+        ))}
+      </div>
+
+      <ul className="mt-3 space-y-2 sm:mt-4 sm:space-y-2.5">
+        {TODAY_JOBS.map((job, index) => (
+          <li
+            key={job.id}
+            className="flex items-start gap-2.5 rounded-xl bg-slate-50 px-2.5 py-2.5 sm:gap-3 sm:px-3 sm:py-3"
+          >
+            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#1e3a8a] text-[11px] font-bold text-white sm:h-7 sm:w-7 sm:text-xs">
+              {index + 1}
+            </span>
+            <div>
+              <p className="text-sm font-bold tabular-nums text-slate-900">
+                {job.time}
+              </p>
+              <p className="mt-0.5 text-xs leading-snug text-slate-600 sm:text-sm">
+                {job.address}
+              </p>
+            </div>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 export default function CleanerDashboard() {
   const today = useMemo(() => startOfDay(new Date()), []);
+  const [city, setCity] = useState<(typeof CITIES)[number]>("Минск");
   const [presence, setPresence] = useState<PresenceStatus>("active");
   const [orders, setOrders] = useState(INITIAL_ORDERS);
   const [questDone, setQuestDone] = useState(3);
@@ -231,6 +637,8 @@ export default function CleanerDashboard() {
   const [reviewsOpen, setReviewsOpen] = useState(false);
   const [payoutsOpen, setPayoutsOpen] = useState(false);
   const [blacklistOpen, setBlacklistOpen] = useState(false);
+  const [scheduleOpen, setScheduleOpen] = useState(false);
+  const [mapOpen, setMapOpen] = useState(false);
   const [blockOrderId, setBlockOrderId] = useState("");
   const [blockReason, setBlockReason] = useState("");
 
@@ -239,9 +647,11 @@ export default function CleanerDashboard() {
   const [priceMaintenance, setPriceMaintenance] = useState("45");
   const [priceGeneral, setPriceGeneral] = useState("75");
   const [priceAfterRepair, setPriceAfterRepair] = useState("110");
-  const [extraWindows, setExtraWindows] = useState("20");
-  const [extraFridge, setExtraFridge] = useState("15");
-  const [extraOven, setExtraOven] = useState("12");
+  const [afterRepairUnit, setAfterRepairUnit] = useState<AfterRepairUnit>("hour");
+  const [extras, setExtras] = useState<ExtraService[]>(DEFAULT_EXTRAS);
+  const [customName, setCustomName] = useState("");
+  const [customPrice, setCustomPrice] = useState("");
+  const [showCustomForm, setShowCustomForm] = useState(false);
 
   const [calendarMonth, setCalendarMonth] = useState(
     () => new Date(today.getFullYear(), today.getMonth(), 1),
@@ -257,6 +667,7 @@ export default function CleanerDashboard() {
   const questGoal = 5;
   const questProgress = Math.min(100, (questDone / questGoal) * 100);
   const balance = 320;
+  const earnedBadges = BADGES.filter((b) => b.earned).length;
 
   const calendarDays = useMemo(() => {
     const year = calendarMonth.getFullYear();
@@ -355,17 +766,86 @@ export default function CleanerDashboard() {
     showToast("Заявка на блокировку отправлена администратору");
   }
 
+  function toggleExtra(id: string) {
+    setExtras((prev) =>
+      prev.map((item) =>
+        item.id === id ? { ...item, enabled: !item.enabled } : item,
+      ),
+    );
+  }
+
+  function updateExtraPrice(id: string, price: string) {
+    setExtras((prev) =>
+      prev.map((item) => (item.id === id ? { ...item, price } : item)),
+    );
+  }
+
+  function addCustomService() {
+    if (!customName.trim() || !customPrice.trim()) {
+      showToast("Укажите название и стоимость услуги");
+      return;
+    }
+    setExtras((prev) => [
+      ...prev,
+      {
+        id: `custom-${Date.now()}`,
+        label: customName.trim(),
+        price: customPrice.trim(),
+        enabled: true,
+        custom: true,
+      },
+    ]);
+    setCustomName("");
+    setCustomPrice("");
+    setShowCustomForm(false);
+    showToast("Услуга добавлена");
+  }
+
+  const scheduleProps = {
+    monthLabel,
+    calendarMonth,
+    setCalendarMonth,
+    calendarDays,
+    selectedDay,
+    setSelectedDay,
+    availableTimes,
+    slotFrom,
+    setSlotFrom,
+    slotTo,
+    setSlotTo,
+    addSlot,
+    freeSlots,
+  };
+
   return (
     <div className="min-h-full bg-[#eef1f6]">
       <header className="border-b border-slate-200/80 bg-white">
-        <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-3 px-4 py-3.5 sm:px-6">
-          <div className="min-w-0">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">
+        <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-2 px-3 py-2.5 sm:gap-3 sm:px-6 sm:py-3.5">
+          <div className="min-w-0 flex-1">
+            <p className="text-[9px] font-semibold uppercase tracking-[0.16em] text-slate-400 sm:text-[10px]">
               Кабинет специалиста
             </p>
-            <h1 className="mt-0.5 truncate font-[family-name:var(--font-unbounded)] text-lg font-semibold text-slate-900 sm:text-xl">
-              Дмитрий Орлов
-            </h1>
+            <div className="mt-0.5 flex flex-wrap items-center gap-2 sm:gap-2.5">
+              <h1 className="truncate font-[family-name:var(--font-unbounded)] text-base font-semibold text-slate-900 sm:text-xl">
+                Дмитрий Орлов
+              </h1>
+              <label className="inline-flex shrink-0 items-center">
+                <span className="sr-only">Город работы</span>
+                <select
+                  value={city}
+                  onChange={(event) =>
+                    setCity(event.target.value as (typeof CITIES)[number])
+                  }
+                  className="sticky top-0 max-w-[7.5rem] rounded-lg border border-slate-200 bg-slate-50 py-1 pl-2 pr-6 text-[11px] font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-[#1e3a8a]/25 sm:max-w-none sm:rounded-xl sm:py-1.5 sm:pl-2.5 sm:pr-7 sm:text-xs"
+                >
+                  {CITIES.map((item) => (
+                    <option key={item} value={item}>
+                      {item}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
           </div>
           <button
             type="button"
@@ -376,11 +856,11 @@ export default function CleanerDashboard() {
             aria-label="Переключить статус"
           >
             {presence === "active" ? (
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-100">
+              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 ring-1 ring-emerald-100 sm:gap-1.5 sm:px-2.5 sm:py-1 sm:text-xs">
                 <span aria-hidden>🟢</span> Активен
               </span>
             ) : (
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-rose-50 px-2.5 py-1 text-xs font-semibold text-rose-700 ring-1 ring-rose-100">
+              <span className="inline-flex items-center gap-1 rounded-full bg-rose-50 px-2 py-0.5 text-[11px] font-semibold text-rose-700 ring-1 ring-rose-100 sm:gap-1.5 sm:px-2.5 sm:py-1 sm:text-xs">
                 <span aria-hidden>🔴</span> Не беспокоить
               </span>
             )}
@@ -388,42 +868,42 @@ export default function CleanerDashboard() {
         </div>
       </header>
 
-      <main className="mx-auto w-full max-w-6xl space-y-4 px-4 py-4 pb-12 sm:px-6 sm:py-6">
+      <main className="mx-auto w-full max-w-6xl space-y-3 px-3 py-3 pb-10 sm:space-y-4 sm:px-6 sm:py-6 sm:pb-12">
         {/* Metrics */}
-        <section className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <section className="grid grid-cols-2 gap-2 sm:gap-3">
           <button
             type="button"
             onClick={() => setReviewsOpen(true)}
-            className="rounded-2xl bg-white p-4 text-left shadow-[0_8px_24px_rgba(15,23,42,0.04)] ring-1 ring-slate-200/70 transition hover:ring-slate-300 sm:p-5"
+            className="rounded-xl bg-white p-3 text-left shadow-[0_8px_24px_rgba(15,23,42,0.04)] ring-1 ring-slate-200/70 transition hover:ring-slate-300 sm:rounded-2xl sm:p-5"
           >
-            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">
-              Рейтинг · нажмите, чтобы открыть отзывы
+            <p className="text-[9px] font-semibold uppercase tracking-[0.12em] text-slate-400 sm:text-[10px] sm:tracking-[0.14em]">
+              Рейтинг
             </p>
-            <p className="mt-2 font-[family-name:var(--font-unbounded)] text-3xl font-semibold tabular-nums text-slate-900">
+            <p className="mt-1 font-[family-name:var(--font-unbounded)] text-2xl font-semibold tabular-nums text-slate-900 sm:mt-2 sm:text-3xl">
               4.9{" "}
-              <span className="text-2xl text-amber-500" aria-hidden>
+              <span className="text-lg text-amber-500 sm:text-2xl" aria-hidden>
                 ★
               </span>
             </p>
           </button>
 
-          <div className="relative rounded-2xl bg-white p-4 shadow-[0_8px_24px_rgba(15,23,42,0.04)] ring-1 ring-slate-200/70 sm:p-5">
-            <div className="flex items-start justify-between gap-2">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">
-                Индекс активности
+          <div className="relative rounded-xl bg-white p-3 shadow-[0_8px_24px_rgba(15,23,42,0.04)] ring-1 ring-slate-200/70 sm:rounded-2xl sm:p-5">
+            <div className="flex items-start justify-between gap-1">
+              <p className="text-[9px] font-semibold uppercase tracking-[0.12em] text-slate-400 sm:text-[10px] sm:tracking-[0.14em]">
+                Индекс
               </p>
               <div className="group relative">
                 <button
                   type="button"
                   onClick={() => setTipOpen((open) => !open)}
-                  className="flex h-5 w-5 items-center justify-center rounded-full bg-slate-100 text-[11px] font-bold italic text-slate-500"
+                  className="flex h-4 w-4 items-center justify-center rounded-full bg-slate-100 text-[10px] font-bold italic text-slate-500 sm:h-5 sm:w-5 sm:text-[11px]"
                   aria-label="Информация об индексе активности"
                   aria-expanded={tipOpen}
                 >
                   i
                 </button>
                 <p
-                  className={`absolute right-0 top-7 z-20 w-64 rounded-xl bg-slate-900 px-3 py-2.5 text-xs leading-snug text-white shadow-lg sm:w-72 ${
+                  className={`absolute right-0 top-6 z-20 w-56 rounded-xl bg-slate-900 px-3 py-2.5 text-[11px] leading-snug text-white shadow-lg sm:top-7 sm:w-72 sm:text-xs ${
                     tipOpen ? "block" : "hidden group-hover:block"
                   }`}
                 >
@@ -433,29 +913,85 @@ export default function CleanerDashboard() {
                 </p>
               </div>
             </div>
-            <p className="mt-2 font-[family-name:var(--font-unbounded)] text-3xl font-semibold tabular-nums text-slate-900">
+            <p className="mt-1 font-[family-name:var(--font-unbounded)] text-2xl font-semibold tabular-nums text-slate-900 sm:mt-2 sm:text-3xl">
               95%
             </p>
           </div>
         </section>
 
+        {/* Trust badges */}
+        <Panel>
+          <div className="flex items-end justify-between gap-2">
+            <div>
+              <p className="text-[9px] font-semibold uppercase tracking-[0.14em] text-slate-400 sm:text-[10px]">
+                Значки доверия
+              </p>
+              <h2 className="mt-0.5 font-[family-name:var(--font-unbounded)] text-sm font-semibold text-slate-900 sm:text-base">
+                Награды специалиста
+              </h2>
+            </div>
+            <p className="shrink-0 text-[11px] font-semibold tabular-nums text-slate-500 sm:text-xs">
+              {earnedBadges}/10
+            </p>
+          </div>
+          <ul className="mt-3 grid grid-cols-2 gap-2 sm:mt-4 sm:grid-cols-3 sm:gap-3 lg:grid-cols-5">
+            {BADGES.map((badge) => (
+              <li
+                key={badge.id}
+                className={`rounded-xl px-2.5 py-2.5 ring-1 sm:px-3 sm:py-3 ${
+                  badge.earned
+                    ? "bg-gradient-to-br from-amber-50 to-orange-50 ring-amber-200"
+                    : "bg-slate-50 ring-slate-200/80 opacity-55 grayscale"
+                }`}
+                title={badge.condition}
+              >
+                <span
+                  className="block text-center text-2xl sm:text-3xl"
+                  aria-hidden
+                >
+                  {badge.icon}
+                </span>
+                <p
+                  className={`mt-1.5 text-center text-[11px] font-bold leading-tight sm:text-xs ${
+                    badge.earned ? "text-slate-900" : "text-slate-500"
+                  }`}
+                >
+                  {badge.title}
+                </p>
+                <p className="mt-1 text-center text-[9px] leading-snug text-slate-500 sm:text-[10px]">
+                  {badge.condition}
+                </p>
+                {badge.progress ? (
+                  <p
+                    className={`mt-1.5 text-center text-[10px] font-semibold tabular-nums sm:text-[11px] ${
+                      badge.earned ? "text-amber-700" : "text-slate-400"
+                    }`}
+                  >
+                    {badge.progress}
+                  </p>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        </Panel>
+
         {/* Quest */}
         <Panel className="bg-gradient-to-br from-[#1e3a8a] to-[#152a66] text-white shadow-[0_12px_28px_rgba(30,58,138,0.28)] ring-0">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/70">
+          <p className="text-[9px] font-semibold uppercase tracking-[0.16em] text-white/70 sm:text-[10px]">
             Квест недели
           </p>
-          <p className="mt-2 text-sm font-medium leading-relaxed text-white">
+          <p className="mt-1.5 text-xs font-medium leading-relaxed text-white sm:mt-2 sm:text-sm">
             Выполните еще 2 заказа до 60 BYN, и комиссия платформы на следующий
             крупный заказ составит 0% (вы оплатите только 3% эквайринга)!
           </p>
-          <div className="mt-4">
-            <div className="mb-1.5 flex items-center justify-between text-xs font-semibold text-white/80">
+          <div className="mt-3 sm:mt-4">
+            <div className="mb-1 flex items-center justify-between text-[11px] font-semibold text-white/80 sm:mb-1.5 sm:text-xs">
               <span>Прогресс</span>
               <span className="tabular-nums">
                 {questDone}/{questGoal} выполнено
               </span>
             </div>
-            <div className="h-2.5 overflow-hidden rounded-full bg-white/20">
+            <div className="h-2 overflow-hidden rounded-full bg-white/20 sm:h-2.5">
               <div
                 className="h-full rounded-full bg-[#5ecfb6] transition-[width]"
                 style={{ width: `${questProgress}%` }}
@@ -464,34 +1000,36 @@ export default function CleanerDashboard() {
           </div>
         </Panel>
 
-        {/* Finance + price 50/50 */}
-        <section className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        {/* Finance + price */}
+        <section className="grid grid-cols-1 gap-3 sm:gap-4 lg:grid-cols-2">
           <Panel>
-            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">
+            <p className="text-[9px] font-semibold uppercase tracking-[0.14em] text-slate-400 sm:text-[10px]">
               Баланс
             </p>
-            <p className="mt-1 font-[family-name:var(--font-unbounded)] text-2xl font-semibold tabular-nums text-slate-900 sm:text-3xl">
+            <p className="mt-0.5 font-[family-name:var(--font-unbounded)] text-xl font-semibold tabular-nums text-slate-900 sm:mt-1 sm:text-3xl">
               {formatByn(balance)} BYN
             </p>
-            <p className="mt-1 text-sm text-slate-500">К выплате на счет</p>
+            <p className="mt-0.5 text-xs text-slate-500 sm:mt-1 sm:text-sm">
+              К выплате на счет · {city}
+            </p>
             <button
               type="button"
               onClick={() => setPayoutsOpen(true)}
-              className="mt-4 rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
+              className="mt-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-100 sm:mt-4 sm:px-3.5 sm:py-2.5 sm:text-sm"
             >
               История выплат
             </button>
           </Panel>
 
           <Panel>
-            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">
+            <p className="text-[9px] font-semibold uppercase tracking-[0.14em] text-slate-400 sm:text-[10px]">
               Мой прайс-лист
             </p>
-            <div className="mt-3 flex flex-wrap gap-2">
+            <div className="mt-2 flex flex-wrap gap-1.5 sm:mt-3 sm:gap-2">
               <button
                 type="button"
                 onClick={() => setRateMode("hourly")}
-                className={`rounded-full px-3 py-1.5 text-xs font-bold transition ${
+                className={`rounded-full px-2.5 py-1 text-[11px] font-bold transition sm:px-3 sm:py-1.5 sm:text-xs ${
                   rateMode === "hourly"
                     ? "bg-[#1e3a8a] text-white"
                     : "bg-slate-100 text-slate-600"
@@ -502,7 +1040,7 @@ export default function CleanerDashboard() {
               <button
                 type="button"
                 onClick={() => setRateMode("mixed")}
-                className={`rounded-full px-3 py-1.5 text-xs font-bold transition ${
+                className={`rounded-full px-2.5 py-1 text-[11px] font-bold transition sm:px-3 sm:py-1.5 sm:text-xs ${
                   rateMode === "mixed"
                     ? "bg-[#1e3a8a] text-white"
                     : "bg-slate-100 text-slate-600"
@@ -512,261 +1050,286 @@ export default function CleanerDashboard() {
               </button>
             </div>
 
-            <div className="mt-4 space-y-2.5">
-              {rateMode === "hourly" ? (
-                <label className="block">
-                  <span className="text-xs font-medium text-slate-500">
-                    Ставка, BYN / час
-                  </span>
-                  <input
-                    type="number"
-                    min={1}
-                    value={hourlyRate}
-                    onChange={(event) => setHourlyRate(event.target.value)}
-                    className="mt-1 w-full rounded-xl bg-slate-50 px-3 py-2.5 text-sm font-semibold outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-[#1e3a8a]/40"
-                  />
-                </label>
-              ) : (
+            <div className="mt-3 space-y-2 sm:mt-4 sm:space-y-2.5">
+              <label className="block">
+                <span className="text-[11px] font-medium text-slate-500 sm:text-xs">
+                  Сумма в час, BYN <span className="text-rose-600">*</span>
+                </span>
+                <input
+                  type="number"
+                  min={1}
+                  required
+                  value={hourlyRate}
+                  onChange={(event) => setHourlyRate(event.target.value)}
+                  className="mt-1 w-full rounded-lg bg-slate-50 px-2.5 py-2 text-sm font-semibold outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-[#1e3a8a]/40 sm:rounded-xl sm:px-3 sm:py-2.5"
+                />
+              </label>
+
+              {rateMode === "mixed" ? (
                 <>
-                  {(
-                    [
-                      ["Поддерживающая", priceMaintenance, setPriceMaintenance],
-                      ["Генеральная", priceGeneral, setPriceGeneral],
-                      ["После ремонта", priceAfterRepair, setPriceAfterRepair],
-                      ["Мытье окон", extraWindows, setExtraWindows],
-                      ["Холодильник", extraFridge, setExtraFridge],
-                      ["Духовка", extraOven, setExtraOven],
-                    ] as const
-                  ).map(([label, value, setter]) => (
-                    <label
-                      key={label}
-                      className="flex items-center justify-between gap-3"
-                    >
-                      <span className="min-w-0 flex-1 text-sm text-slate-600">
-                        {label}
+                  <label className="flex items-center justify-between gap-3">
+                    <span className="min-w-0 flex-1 text-xs text-slate-600 sm:text-sm">
+                      Поддерживающая
+                    </span>
+                    <input
+                      type="number"
+                      min={1}
+                      value={priceMaintenance}
+                      onChange={(event) =>
+                        setPriceMaintenance(event.target.value)
+                      }
+                      className="w-20 rounded-lg bg-slate-50 px-2 py-1.5 text-right text-sm font-semibold outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-[#1e3a8a]/40 sm:w-24 sm:rounded-xl sm:px-2.5 sm:py-2"
+                    />
+                  </label>
+                  <label className="flex items-center justify-between gap-3">
+                    <span className="min-w-0 flex-1 text-xs text-slate-600 sm:text-sm">
+                      Генеральная
+                    </span>
+                    <input
+                      type="number"
+                      min={1}
+                      value={priceGeneral}
+                      onChange={(event) => setPriceGeneral(event.target.value)}
+                      className="w-20 rounded-lg bg-slate-50 px-2 py-1.5 text-right text-sm font-semibold outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-[#1e3a8a]/40 sm:w-24 sm:rounded-xl sm:px-2.5 sm:py-2"
+                    />
+                  </label>
+
+                  <div className="rounded-lg bg-slate-50 px-2.5 py-2.5 ring-1 ring-slate-200/80 sm:rounded-xl sm:px-3 sm:py-3">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <span className="text-xs font-semibold text-slate-700 sm:text-sm">
+                        После ремонта
+                      </span>
+                      <div className="inline-flex rounded-full bg-white p-0.5 ring-1 ring-slate-200">
+                        <button
+                          type="button"
+                          onClick={() => setAfterRepairUnit("hour")}
+                          className={`rounded-full px-2.5 py-1 text-[10px] font-bold transition sm:text-[11px] ${
+                            afterRepairUnit === "hour"
+                              ? "bg-[#1e3a8a] text-white"
+                              : "text-slate-500"
+                          }`}
+                        >
+                          За час
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setAfterRepairUnit("sqm")}
+                          className={`rounded-full px-2.5 py-1 text-[10px] font-bold transition sm:text-[11px] ${
+                            afterRepairUnit === "sqm"
+                              ? "bg-[#1e3a8a] text-white"
+                              : "text-slate-500"
+                          }`}
+                        >
+                          За м²
+                        </button>
+                      </div>
+                    </div>
+                    <label className="mt-2 flex items-center justify-between gap-3">
+                      <span className="text-[11px] text-slate-500 sm:text-xs">
+                        {afterRepairUnit === "hour"
+                          ? "Ставка, BYN / час"
+                          : "Ставка, BYN / м²"}
                       </span>
                       <input
                         type="number"
                         min={1}
-                        value={value}
-                        onChange={(event) => setter(event.target.value)}
-                        className="w-24 rounded-xl bg-slate-50 px-2.5 py-2 text-right text-sm font-semibold outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-[#1e3a8a]/40"
+                        value={priceAfterRepair}
+                        onChange={(event) =>
+                          setPriceAfterRepair(event.target.value)
+                        }
+                        className="w-20 rounded-lg bg-white px-2 py-1.5 text-right text-sm font-semibold outline-none ring-1 ring-slate-200 focus:ring-[#1e3a8a]/40 sm:w-24 sm:rounded-xl sm:px-2.5 sm:py-2"
                       />
                     </label>
-                  ))}
+                  </div>
                 </>
-              )}
+              ) : null}
             </div>
 
-            <p className="mt-4 rounded-xl bg-rose-50 px-3 py-2.5 text-xs font-semibold leading-relaxed text-rose-700 ring-1 ring-rose-100">
-              Внимание: указывайте стоимость с учетом того, что платформа
-              удержит комиссию 20%
-            </p>
+            <div className="mt-3 sm:mt-4">
+              <Alert>
+                Внимание: указывайте стоимость с учетом того, что платформа
+                удержит комиссию 20%
+              </Alert>
+            </div>
           </Panel>
         </section>
 
-        {/* Schedule + map 50/50 */}
-        <section className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        {/* Extra services + avg times */}
+        <section className="grid grid-cols-1 gap-3 sm:gap-4 lg:grid-cols-2">
           <Panel>
-            <p className="font-[family-name:var(--font-unbounded)] text-base font-semibold text-slate-900">
-              Мое расписание
+            <p className="font-[family-name:var(--font-unbounded)] text-sm font-semibold text-slate-900 sm:text-base">
+              Дополнительные услуги
             </p>
-            <p className="mt-1 text-xs leading-relaxed text-slate-500">
-              Указывайте время, когда вы готовы НАЧАТЬ уборку на объекте (без
-              учета времени на дорогу)
+            <p className="mt-0.5 text-[11px] text-slate-500 sm:text-xs">
+              Отметьте услуги, которые вы оказываете
             </p>
-
-            <div className="mt-4 flex items-center justify-between gap-2">
-              <button
-                type="button"
-                onClick={() =>
-                  setCalendarMonth(
-                    new Date(
-                      calendarMonth.getFullYear(),
-                      calendarMonth.getMonth() - 1,
-                      1,
-                    ),
-                  )
-                }
-                className="rounded-lg bg-slate-100 px-2.5 py-1.5 text-sm font-semibold text-slate-600"
-              >
-                ←
-              </button>
-              <p className="text-sm font-semibold capitalize text-slate-800">
-                {monthLabel}
-              </p>
-              <button
-                type="button"
-                onClick={() =>
-                  setCalendarMonth(
-                    new Date(
-                      calendarMonth.getFullYear(),
-                      calendarMonth.getMonth() + 1,
-                      1,
-                    ),
-                  )
-                }
-                className="rounded-lg bg-slate-100 px-2.5 py-1.5 text-sm font-semibold text-slate-600"
-              >
-                →
-              </button>
-            </div>
-
-            <div className="mt-3 grid grid-cols-7 gap-1 text-center text-[10px] font-semibold uppercase tracking-wide text-slate-400">
-              {["пн", "вт", "ср", "чт", "пт", "сб", "вс"].map((day) => (
-                <span key={day}>{day}</span>
-              ))}
-            </div>
-            <div className="mt-1 grid grid-cols-7 gap-1">
-              {calendarDays.map((cell, index) => {
-                if (!cell.date) {
-                  return <span key={`empty-${index}`} className="h-9" />;
-                }
-                const selected =
-                  selectedDay &&
-                  cell.date.toDateString() === selectedDay.toDateString();
-                return (
-                  <button
-                    key={cell.date.toISOString()}
-                    type="button"
-                    disabled={cell.disabled}
-                    onClick={() => setSelectedDay(cell.date)}
-                    className={`h-9 rounded-lg text-sm font-semibold tabular-nums transition ${
-                      cell.disabled
-                        ? "cursor-not-allowed text-slate-300"
-                        : selected
-                          ? "bg-[#1e3a8a] text-white"
-                          : "bg-slate-50 text-slate-700 hover:bg-slate-100"
-                    }`}
-                  >
-                    {cell.date.getDate()}
-                  </button>
-                );
-              })}
-            </div>
-
-            <div className="mt-4 grid grid-cols-2 gap-2">
-              <label className="block">
-                <span className="text-xs font-medium text-slate-500">С</span>
-                <select
-                  value={
-                    availableTimes.includes(slotFrom)
-                      ? slotFrom
-                      : (availableTimes[0] ?? "")
-                  }
-                  onChange={(event) => setSlotFrom(event.target.value)}
-                  disabled={availableTimes.length === 0}
-                  className="mt-1 w-full rounded-xl bg-slate-50 px-3 py-2.5 text-sm font-semibold outline-none ring-1 ring-slate-200 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {availableTimes.length === 0 ? (
-                    <option value="">Нет доступных часов</option>
-                  ) : (
-                    availableTimes.map((time) => (
-                      <option key={`from-${time}`} value={time}>
-                        {time}
-                      </option>
-                    ))
-                  )}
-                </select>
-              </label>
-              <label className="block">
-                <span className="text-xs font-medium text-slate-500">По</span>
-                <select
-                  value={
-                    availableTimes.includes(slotTo)
-                      ? slotTo
-                      : (availableTimes[availableTimes.length - 1] ?? "")
-                  }
-                  onChange={(event) => setSlotTo(event.target.value)}
-                  disabled={availableTimes.length === 0}
-                  className="mt-1 w-full rounded-xl bg-slate-50 px-3 py-2.5 text-sm font-semibold outline-none ring-1 ring-slate-200 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {availableTimes.length === 0 ? (
-                    <option value="">Нет доступных часов</option>
-                  ) : (
-                    availableTimes.map((time) => (
-                      <option key={`to-${time}`} value={time}>
-                        {time}
-                      </option>
-                    ))
-                  )}
-                </select>
-              </label>
-            </div>
-            <button
-              type="button"
-              onClick={addSlot}
-              className="mt-3 w-full rounded-xl bg-[#1e3a8a] px-3 py-2.5 text-sm font-bold text-white transition hover:bg-[#152a66]"
-            >
-              Добавить свободный интервал
-            </button>
-
-            <ul className="mt-3 space-y-1.5">
-              {freeSlots.map((slot) => (
+            <ul className="mt-3 space-y-2 sm:mt-3.5">
+              {extras.map((service) => (
                 <li
-                  key={slot}
-                  className="rounded-lg bg-slate-50 px-3 py-2 text-xs font-medium text-slate-600"
+                  key={service.id}
+                  className="flex items-center gap-2 rounded-lg bg-slate-50 px-2 py-2 sm:gap-3 sm:px-2.5 sm:py-2.5"
                 >
-                  {slot}
+                  <label className="flex min-w-0 flex-1 items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={service.enabled}
+                      onChange={() => toggleExtra(service.id)}
+                      className="h-4 w-4 accent-[#1e3a8a]"
+                    />
+                    <span
+                      className={`truncate text-xs sm:text-sm ${
+                        service.enabled
+                          ? "font-medium text-slate-800"
+                          : "text-slate-500"
+                      }`}
+                    >
+                      {service.label}
+                    </span>
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    disabled={!service.enabled}
+                    value={service.price}
+                    onChange={(event) =>
+                      updateExtraPrice(service.id, event.target.value)
+                    }
+                    className="w-16 rounded-lg bg-white px-1.5 py-1 text-right text-xs font-semibold outline-none ring-1 ring-slate-200 disabled:opacity-40 sm:w-20 sm:px-2 sm:text-sm"
+                    aria-label={`Стоимость: ${service.label}`}
+                  />
                 </li>
               ))}
             </ul>
+
+            {showCustomForm ? (
+              <div className="mt-3 space-y-2 rounded-xl bg-slate-50 p-2.5 ring-1 ring-slate-200 sm:mt-4 sm:p-3">
+                <input
+                  value={customName}
+                  onChange={(event) => setCustomName(event.target.value)}
+                  placeholder="Название услуги"
+                  className="w-full rounded-lg bg-white px-2.5 py-2 text-sm outline-none ring-1 ring-slate-200"
+                />
+                <input
+                  type="number"
+                  min={1}
+                  value={customPrice}
+                  onChange={(event) => setCustomPrice(event.target.value)}
+                  placeholder="Стоимость, BYN"
+                  className="w-full rounded-lg bg-white px-2.5 py-2 text-sm outline-none ring-1 ring-slate-200"
+                />
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowCustomForm(false);
+                      setCustomName("");
+                      setCustomPrice("");
+                    }}
+                    className="rounded-lg bg-slate-200 px-2 py-2 text-xs font-bold text-slate-700"
+                  >
+                    Отмена
+                  </button>
+                  <button
+                    type="button"
+                    onClick={addCustomService}
+                    className="rounded-lg bg-[#1e3a8a] px-2 py-2 text-xs font-bold text-white"
+                  >
+                    Сохранить
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setShowCustomForm(true)}
+                className="mt-3 w-full rounded-xl border border-dashed border-slate-300 bg-slate-50/80 px-3 py-2.5 text-xs font-bold text-slate-700 transition hover:bg-slate-100 sm:mt-4 sm:text-sm"
+              >
+                + Добавить свою услугу
+              </button>
+            )}
           </Panel>
 
           <Panel>
-            <p className="font-[family-name:var(--font-unbounded)] text-base font-semibold text-slate-900">
-              Карта заказов
+            <p className="font-[family-name:var(--font-unbounded)] text-sm font-semibold text-slate-900 sm:text-base">
+              Среднее время уборок
             </p>
-            <p className="mt-1 text-xs text-slate-500">Маршруты на сегодня</p>
-
-            <div className="relative mt-4 h-56 overflow-hidden rounded-2xl bg-[linear-gradient(135deg,#dbe7f5_0%,#e8eef8_45%,#d4e4d8_100%)] ring-1 ring-slate-200">
-              <div className="absolute inset-0 opacity-40 [background-image:linear-gradient(#94a3b8_1px,transparent_1px),linear-gradient(90deg,#94a3b8_1px,transparent_1px)] [background-size:28px_28px]" />
-              <p className="absolute left-3 top-3 rounded-full bg-white/90 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-slate-500">
-                Карта · заглушка
-              </p>
-              {TODAY_JOBS.map((job, index) => (
-                <span
-                  key={job.id}
-                  className="absolute flex h-8 w-8 -translate-x-1/2 -translate-y-full items-center justify-center rounded-full bg-[#1e3a8a] text-xs font-bold text-white shadow-md"
-                  style={{ left: `${job.x}%`, top: `${job.y}%` }}
-                  title={job.address}
-                >
-                  {index + 1}
-                </span>
-              ))}
+            <p className="mt-0.5 text-[11px] text-slate-500 sm:text-xs">
+              Подсказка для расчёта смены
+            </p>
+            <div className="mt-3 overflow-x-auto sm:mt-4">
+              <table className="w-full min-w-[260px] border-collapse text-left text-[11px] sm:text-xs">
+                <thead>
+                  <tr className="border-b border-slate-200 text-slate-400">
+                    <th className="py-1.5 pr-2 font-semibold">Объект</th>
+                    <th className="py-1.5 pr-2 font-semibold">Поддерж.</th>
+                    <th className="py-1.5 font-semibold">Генеральн.</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {AVG_TIMES.map((row) => (
+                    <tr
+                      key={row.rooms}
+                      className="border-b border-slate-100 text-slate-700"
+                    >
+                      <td className="py-1.5 pr-2 font-semibold">{row.rooms}</td>
+                      <td className="py-1.5 pr-2 tabular-nums">{row.maint}</td>
+                      <td className="py-1.5 tabular-nums">{row.general}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
+          </Panel>
+        </section>
 
-            <ul className="mt-4 space-y-2.5">
-              {TODAY_JOBS.map((job, index) => (
-                <li
-                  key={job.id}
-                  className="flex items-start gap-3 rounded-xl bg-slate-50 px-3 py-3"
-                >
-                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#1e3a8a] text-xs font-bold text-white">
-                    {index + 1}
-                  </span>
-                  <div>
-                    <p className="text-sm font-bold tabular-nums text-slate-900">
-                      {job.time}
-                    </p>
-                    <p className="mt-0.5 text-sm leading-snug text-slate-600">
-                      {job.address}
-                    </p>
-                  </div>
-                </li>
-              ))}
-            </ul>
+        {/* Mobile previews for schedule/map */}
+        <section className="grid grid-cols-2 gap-2 lg:hidden">
+          <button
+            type="button"
+            onClick={() => setScheduleOpen(true)}
+            className="rounded-xl bg-white p-3 text-left shadow-[0_8px_24px_rgba(15,23,42,0.04)] ring-1 ring-slate-200/70"
+          >
+            <p className="text-lg" aria-hidden>
+              📅
+            </p>
+            <p className="mt-1 text-xs font-bold text-slate-900">Расписание</p>
+            <p className="mt-0.5 text-[10px] leading-snug text-slate-500">
+              {freeSlots.length} свободных интервала
+            </p>
+          </button>
+          <button
+            type="button"
+            onClick={() => setMapOpen(true)}
+            className="rounded-xl bg-white p-3 text-left shadow-[0_8px_24px_rgba(15,23,42,0.04)] ring-1 ring-slate-200/70"
+          >
+            <p className="text-lg" aria-hidden>
+              🗺️
+            </p>
+            <p className="mt-1 text-xs font-bold text-slate-900">Карта заказов</p>
+            <p className="mt-0.5 text-[10px] leading-snug text-slate-500">
+              Сегодня: {TODAY_JOBS.length} адреса
+            </p>
+          </button>
+        </section>
+
+        {/* Desktop schedule + map */}
+        <section className="hidden grid-cols-1 gap-4 lg:grid lg:grid-cols-2">
+          <Panel>
+            <ScheduleBlock {...scheduleProps} />
+          </Panel>
+          <Panel>
+            <MapBlock />
           </Panel>
         </section>
 
         {/* Blacklist */}
         <Panel className="border border-rose-100 bg-rose-50/40">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
             <div>
-              <p className="font-[family-name:var(--font-unbounded)] text-base font-semibold text-slate-900">
+              <p className="font-[family-name:var(--font-unbounded)] text-sm font-semibold text-slate-900 sm:text-base">
                 Черный список клиентов
               </p>
-              <p className="mt-1 max-w-2xl text-xs leading-relaxed text-slate-600">
+              <p className="mt-1 max-w-2xl text-[11px] leading-relaxed text-slate-600 sm:text-xs">
                 Заявка рассматривается администратором. После подтверждения вы
                 больше не будете получать заказы от этого пользователя.
               </p>
@@ -774,7 +1337,7 @@ export default function CleanerDashboard() {
             <button
               type="button"
               onClick={() => setBlacklistOpen(true)}
-              className="shrink-0 rounded-xl bg-rose-600 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-rose-700"
+              className="shrink-0 rounded-xl bg-rose-600 px-3.5 py-2 text-xs font-bold text-white transition hover:bg-rose-700 sm:px-4 sm:py-2.5 sm:text-sm"
             >
               Запросить блокировку клиента
             </button>
@@ -782,64 +1345,64 @@ export default function CleanerDashboard() {
         </Panel>
 
         {/* Radar */}
-        <section className="space-y-3">
+        <section className="space-y-2.5 sm:space-y-3">
           <div className="flex items-end justify-between gap-3 px-0.5">
-            <h2 className="font-[family-name:var(--font-unbounded)] text-base font-semibold text-slate-900 sm:text-lg">
+            <h2 className="font-[family-name:var(--font-unbounded)] text-sm font-semibold text-slate-900 sm:text-lg">
               Новые заказы рядом с вами
             </h2>
-            <span className="text-xs font-semibold tabular-nums text-slate-400">
+            <span className="text-[11px] font-semibold tabular-nums text-slate-400 sm:text-xs">
               {orders.length}
             </span>
           </div>
 
           {orders.length === 0 ? (
             <Panel>
-              <p className="py-4 text-center text-sm text-slate-500">
+              <p className="py-3 text-center text-xs text-slate-500 sm:py-4 sm:text-sm">
                 Сейчас рядом нет новых заявок. Включите статус «Активен», чтобы
                 получать уведомления.
               </p>
             </Panel>
           ) : (
-            <ul className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+            <ul className="grid grid-cols-1 gap-2.5 sm:gap-3 lg:grid-cols-2">
               {orders.map((order) => {
                 const earn = netEarn(order.clientTotal);
                 return (
                   <li key={order.id}>
                     <Panel>
-                      <p className="text-sm font-bold text-slate-900">
+                      <p className="text-xs font-bold text-slate-900 sm:text-sm">
                         {order.when}
                       </p>
-                      <p className="mt-1 text-sm leading-snug text-slate-600">
+                      <p className="mt-0.5 text-xs leading-snug text-slate-600 sm:mt-1 sm:text-sm">
                         {order.service}
                       </p>
-                      <p className="mt-2 text-xs font-medium text-slate-400">
-                        {order.distance}
+                      <p className="mt-1.5 text-[11px] font-medium text-slate-400 sm:mt-2 sm:text-xs">
+                        {order.distance} · {city}
                       </p>
 
-                      <div className="mt-4 rounded-xl bg-slate-50 px-3 py-3">
-                        <p className="text-xs text-slate-400">
+                      <div className="mt-3 rounded-xl bg-slate-50 px-2.5 py-2.5 sm:mt-4 sm:px-3 sm:py-3">
+                        <p className="text-[11px] text-slate-400 sm:text-xs">
                           Чек клиента:{" "}
                           <span className="tabular-nums">
                             {formatByn(order.clientTotal)} BYN
                           </span>
                         </p>
-                        <p className="mt-1 font-[family-name:var(--font-unbounded)] text-lg font-semibold tabular-nums text-[#1e3a8a]">
-                          Ваш заработок (за вычетом 20%): {formatByn(earn)} BYN
+                        <p className="mt-0.5 font-[family-name:var(--font-unbounded)] text-base font-semibold tabular-nums text-[#1e3a8a] sm:mt-1 sm:text-lg">
+                          Ваш заработок (−20%): {formatByn(earn)} BYN
                         </p>
                       </div>
 
-                      <div className="mt-3 grid grid-cols-2 gap-2">
+                      <div className="mt-2.5 grid grid-cols-2 gap-2 sm:mt-3">
                         <button
                           type="button"
                           onClick={() => takeOrder(order.id)}
-                          className="min-h-11 rounded-xl bg-emerald-600 px-3 py-2.5 text-sm font-bold text-white transition hover:bg-emerald-700"
+                          className="min-h-10 rounded-xl bg-emerald-600 px-2 py-2 text-xs font-bold text-white transition hover:bg-emerald-700 sm:min-h-11 sm:px-3 sm:py-2.5 sm:text-sm"
                         >
                           Взять заказ
                         </button>
                         <button
                           type="button"
                           onClick={() => skipOrder(order.id)}
-                          className="min-h-11 rounded-xl bg-slate-200 px-3 py-2.5 text-sm font-bold text-slate-700 transition hover:bg-rose-100 hover:text-rose-700"
+                          className="min-h-10 rounded-xl bg-slate-200 px-2 py-2 text-xs font-bold text-slate-700 transition hover:bg-rose-100 hover:text-rose-700 sm:min-h-11 sm:px-3 sm:py-2.5 sm:text-sm"
                         >
                           Пропустить
                         </button>
@@ -852,15 +1415,30 @@ export default function CleanerDashboard() {
           )}
         </section>
 
-        <div className="pt-2 text-center">
+        <div className="pt-1 text-center sm:pt-2">
           <Link
             href="/"
-            className="text-sm font-medium text-slate-500 transition hover:text-slate-800"
+            className="text-xs font-medium text-slate-500 transition hover:text-slate-800 sm:text-sm"
           >
             ← На главную CleanPlatform
           </Link>
         </div>
       </main>
+
+      {scheduleOpen ? (
+        <FullScreenModal
+          title="Мое расписание"
+          onClose={() => setScheduleOpen(false)}
+        >
+          <ScheduleBlock {...scheduleProps} />
+        </FullScreenModal>
+      ) : null}
+
+      {mapOpen ? (
+        <FullScreenModal title="Карта заказов" onClose={() => setMapOpen(false)}>
+          <MapBlock />
+        </FullScreenModal>
+      ) : null}
 
       {reviewsOpen ? (
         <Modal title="Отзывы клиентов" onClose={() => setReviewsOpen(false)}>
