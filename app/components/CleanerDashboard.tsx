@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
 import SupportTicketModal from "./SupportTicketModal";
+import { saveCleanerBlacklistSubmission } from "../lib/adminData";
 import {
   DEMO_CLEANER_ID,
   formatIntervalLabel,
@@ -881,6 +882,11 @@ export default function CleanerDashboard() {
       showToast("Укажите заказ/клиента и причину");
       return;
     }
+    saveCleanerBlacklistSubmission({
+      cleanerName: "Дмитрий Орлов",
+      orderOrClient: blockOrderId.trim(),
+      reason: blockReason.trim(),
+    });
     setBlacklistOpen(false);
     setBlockOrderId("");
     setBlockReason("");

@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="320" height="200" viewBox="0 0 320 200">
+  <rect width="320" height="200" rx="12" fill="#dcfce7"/>
+  <rect x="24" y="24" width="90" height="110" rx="8" fill="#4ade80"/>
+  <rect x="132" y="36" width="160" height="12" rx="4" fill="#166534"/>
+  <rect x="132" y="60" width="140" height="10" rx="4" fill="#22c55e"/>
+  <text x="24" y="176" font-family="sans-serif" font-size="14" fill="#14532d">Документ · Ковалёва А.П.</text>
+</svg>
