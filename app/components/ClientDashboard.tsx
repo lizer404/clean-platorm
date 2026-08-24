@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "./AuthProvider";
 import GameHub from "./GameHub";
+import LoyaltyModal, { shouldShowLoyaltyModal } from "./LoyaltyModal";
 import OrderChat from "./OrderChat";
 import {
   saveRepeatBooking,
@@ -40,6 +41,50 @@ type ClientOrder = {
 const REVIEW_WINDOW_MS = 2 * 60 * 60 * 1000;
 
 function buildOrders(now: number): ClientOrder[] {
+  const cleaners = [
+    {
+      id: "dmitry",
+      name: "Дмитрий Орлов",
+      initials: "ДО",
+      accent: "#22A88F",
+    },
+    {
+      id: "elena",
+      name: "Елена Мороз",
+      initials: "ЕМ",
+      accent: "#7C5CFC",
+    },
+    {
+      id: "anna",
+      name: "Анна Ковалёва",
+      initials: "АК",
+      accent: "#5B8DEF",
+    },
+  ] as const;
+
+  const completed: ClientOrder[] = Array.from({ length: 10 }, (_, index) => {
+    const cleaner = cleaners[index % cleaners.length];
+    const daysAgo = index + 1;
+    return {
+      id: `ord-${index + 1}`,
+      typeLabel:
+        index % 3 === 0 ? "Генеральная уборка" : "Поддерживающая уборка",
+      cleaningType: index % 3 === 0 ? "general" : "maintenance",
+      startLabel: `${Math.max(1, 20 - daysAgo)} июля, ${10 + (index % 6)}:00`,
+      price: `${60 + index * 8} BYN`,
+      address: "г. Минск, ул. Независимости, 12",
+      status: "completed",
+      statusLabel: "Завершена",
+      rooms: 1 + (index % 3),
+      baths: 1,
+      area: 40 + index * 4,
+      extras: index % 2 === 0 ? ["windows"] : [],
+      cleaner: { ...cleaner },
+      completedAt:
+        index === 0 ? now - 45 * 60 * 1000 : now - (daysAgo + 2) * 60 * 60 * 1000,
+    };
+  });
+
   return [
     {
       id: "ord-active",
@@ -54,58 +99,10 @@ function buildOrders(now: number): ClientOrder[] {
       baths: 1,
       area: 55,
       extras: ["windows"],
-      cleaner: {
-        id: "dmitry",
-        name: "Дмитрий Орлов",
-        initials: "ДО",
-        accent: "#22A88F",
-      },
+      cleaner: { ...cleaners[0] },
       completedAt: null,
     },
-    {
-      id: "ord-1",
-      typeLabel: "Генеральная уборка",
-      cleaningType: "general",
-      startLabel: "2 августа, 10:00",
-      price: "156 BYN",
-      address: "г. Минск, пр. Победителей, 5",
-      status: "completed",
-      statusLabel: "Завершена",
-      rooms: 3,
-      baths: 2,
-      area: 78,
-      extras: ["fridge", "oven", "windows"],
-      cleaner: {
-        id: "elena",
-        name: "Елена Мороз",
-        initials: "ЕМ",
-        accent: "#7C5CFC",
-      },
-      // Still within 2h review window (mock)
-      completedAt: now - 45 * 60 * 1000,
-    },
-    {
-      id: "ord-2",
-      typeLabel: "Поддерживающая уборка",
-      cleaningType: "maintenance",
-      startLabel: "19 июля, 16:00",
-      price: "72 BYN",
-      address: "г. Минск, ул. Независимости, 12",
-      status: "completed",
-      statusLabel: "Завершена",
-      rooms: 1,
-      baths: 1,
-      area: 42,
-      extras: [],
-      cleaner: {
-        id: "anna",
-        name: "Анна Ковалёва",
-        initials: "АК",
-        accent: "#5B8DEF",
-      },
-      // Outside 2h window
-      completedAt: now - 5 * 60 * 60 * 1000,
-    },
+    ...completed,
   ];
 }
 
@@ -149,12 +146,21 @@ export default function ClientDashboard() {
   const [reviewOrderId, setReviewOrderId] = useState<string | null>(null);
   const [reviewText, setReviewText] = useState("");
   const [reviewSent, setReviewSent] = useState<Record<string, boolean>>({});
+  const [loyaltyOpen, setLoyaltyOpen] = useState(false);
 
   const orders = useMemo(() => buildOrders(now), [now]);
   const activeOrder = orders.find((order) => order.status === "active") ?? null;
   const pastOrders = orders.filter((order) => order.status === "completed");
+  const completedCount = pastOrders.length;
   const chatOrder = orders.find((order) => order.id === chatOrderId) ?? null;
   const reviewOrder = orders.find((order) => order.id === reviewOrderId) ?? null;
+
+  useEffect(() => {
+    if (!authReady || !isLoggedIn) return;
+    if (shouldShowLoyaltyModal(completedCount)) {
+      setLoyaltyOpen(true);
+    }
+  }, [authReady, isLoggedIn, completedCount]);
 
   useEffect(() => {
     if (!authReady || isLoggedIn) return;
@@ -225,6 +231,12 @@ export default function ClientDashboard() {
           <h1 className="mt-2 font-[family-name:var(--font-unbounded)] text-[1.45rem] font-semibold leading-snug tracking-tight text-foreground sm:text-[1.75rem]">
             Здравствуйте!
           </h1>
+          <p className="mt-1 text-sm text-muted">
+            Завершённых уборок:{" "}
+            <span className="font-semibold tabular-nums text-foreground">
+              {completedCount}
+            </span>
+          </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <button
@@ -426,6 +438,18 @@ export default function ClientDashboard() {
             </div>
           </div>
         </div>
+      ) : null}
+
+      {loyaltyOpen ? (
+        <LoyaltyModal
+          completedCount={completedCount}
+          userEmail={
+            userPhone
+              ? `${userPhone.replace(/\D/g, "")}@client.cleanplatform.by`
+              : null
+          }
+          onClose={() => setLoyaltyOpen(false)}
+        />
       ) : null}
     </div>
   );

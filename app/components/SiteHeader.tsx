@@ -11,12 +11,12 @@ import {
 } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "./AuthProvider";
+import SupportTicketModal from "./SupportTicketModal";
 
 const NAV_LINKS = [
   { href: "#how-it-works", label: "Как это работает" },
   { href: "#reviews", label: "Отзывы" },
   { href: "#guarantees", label: "Гарантии" },
-  { href: "#footer", label: "Поддержка" },
 ] as const;
 
 const PHONE_PREFIX = "+375 ";
@@ -974,6 +974,7 @@ function CleanerApplyModal({ onClose }: { onClose: () => void }) {
 
 export default function SiteHeader() {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [supportOpen, setSupportOpen] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
   const {
@@ -1053,6 +1054,13 @@ export default function SiteHeader() {
                 {link.label}
               </a>
             ))}
+            <button
+              type="button"
+              onClick={() => setSupportOpen(true)}
+              className="rounded-full px-2.5 py-2 text-sm font-medium text-muted transition hover:bg-plaque hover:text-foreground"
+            >
+              Сообщить об ошибке / Поддержка
+            </button>
           </nav>
 
           <div className="ml-auto flex min-w-0 items-center gap-1.5 sm:gap-2.5">
@@ -1147,6 +1155,16 @@ export default function SiteHeader() {
                   {link.label}
                 </button>
               ))}
+              <button
+                type="button"
+                onClick={() => {
+                  setMenuOpen(false);
+                  setSupportOpen(true);
+                }}
+                className="rounded-2xl px-4 py-3.5 text-left text-[15px] font-semibold text-foreground transition hover:bg-plaque"
+              >
+                Сообщить об ошибке / Поддержка
+              </button>
             </nav>
 
             <div className="mt-auto space-y-2.5 pt-6">
@@ -1202,6 +1220,12 @@ export default function SiteHeader() {
       {cleanerModalOpen && (
         <CleanerApplyModal onClose={closeCleanerModal} />
       )}
+      {supportOpen ? (
+        <SupportTicketModal
+          source="client"
+          onClose={() => setSupportOpen(false)}
+        />
+      ) : null}
     </>
   );
 }

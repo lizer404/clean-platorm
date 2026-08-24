@@ -2,6 +2,15 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
+import SupportTicketModal from "./SupportTicketModal";
+import {
+  DEMO_CLEANER_ID,
+  formatIntervalLabel,
+  loadCleanerIntervals,
+  saveCleanerIntervals,
+  toDateIso,
+  type FreeInterval,
+} from "../lib/schedule";
 
 type PresenceStatus = "active" | "dnd";
 type RateMode = "hourly" | "mixed";
@@ -497,7 +506,7 @@ function ScheduleBlock({
   slotTo: string;
   setSlotTo: (v: string) => void;
   addSlot: () => void;
-  freeSlots: string[];
+  freeSlots: FreeInterval[];
 }) {
   return (
     <div>
@@ -643,10 +652,10 @@ function ScheduleBlock({
       <ul className="mt-2.5 space-y-1.5 sm:mt-3">
         {freeSlots.map((slot) => (
           <li
-            key={slot}
+            key={slot.id}
             className="rounded-lg bg-slate-50 px-2.5 py-1.5 text-[11px] font-medium text-slate-600 sm:px-3 sm:py-2 sm:text-xs"
           >
-            {slot}
+            {formatIntervalLabel(slot)}
           </li>
         ))}
       </ul>
@@ -746,10 +755,17 @@ export default function CleanerDashboard() {
   const [selectedDay, setSelectedDay] = useState<Date | null>(today);
   const [slotFrom, setSlotFrom] = useState("10:00");
   const [slotTo, setSlotTo] = useState("14:00");
-  const [freeSlots, setFreeSlots] = useState<string[]>([
-    "Сегодня, 10:00–14:00",
-    "Завтра, 09:00–13:00",
-  ]);
+  const [freeSlots, setFreeSlots] = useState<FreeInterval[]>([]);
+  const [supportOpen, setSupportOpen] = useState(false);
+
+  useEffect(() => {
+    setFreeSlots(loadCleanerIntervals(DEMO_CLEANER_ID));
+  }, []);
+
+  useEffect(() => {
+    if (freeSlots.length === 0) return;
+    saveCleanerIntervals(DEMO_CLEANER_ID, freeSlots);
+  }, [freeSlots]);
 
   const questGoal = 5;
   const questProgress = Math.min(100, (questDone / questGoal) * 100);
@@ -848,13 +864,15 @@ export default function CleanerDashboard() {
       showToast("Время «По» должно быть позже «С»");
       return;
     }
-    const dayLabel = new Intl.DateTimeFormat("ru-RU", {
-      day: "numeric",
-      month: "long",
-    }).format(selectedDay);
-    const next = `${dayLabel}, ${from}–${to}`;
+    const dateIso = toDateIso(selectedDay);
+    const next: FreeInterval = {
+      id: `${dateIso}-${from}-${to}-${Date.now()}`,
+      dateIso,
+      from,
+      to,
+    };
     setFreeSlots((prev) => [next, ...prev].slice(0, 8));
-    showToast("Интервал добавлен");
+    showToast("Интервал добавлен (клиент увидит слоты с буфером +1 ч)");
   }
 
   function submitBlacklist(event: FormEvent) {
@@ -980,24 +998,33 @@ export default function CleanerDashboard() {
               </label>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={() =>
-              setPresence((value) => (value === "active" ? "dnd" : "active"))
-            }
-            className="shrink-0 transition active:scale-[0.98]"
-            aria-label="Переключить статус"
-          >
-            {presence === "active" ? (
-              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 ring-1 ring-emerald-100 sm:gap-1.5 sm:px-2.5 sm:py-1 sm:text-xs">
-                <span aria-hidden>🟢</span> Активен
-              </span>
-            ) : (
-              <span className="inline-flex items-center gap-1 rounded-full bg-rose-50 px-2 py-0.5 text-[11px] font-semibold text-rose-700 ring-1 ring-rose-100 sm:gap-1.5 sm:px-2.5 sm:py-1 sm:text-xs">
-                <span aria-hidden>🔴</span> Не беспокоить
-              </span>
-            )}
-          </button>
+          <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
+            <button
+              type="button"
+              onClick={() => setSupportOpen(true)}
+              className="rounded-full bg-slate-100 px-2.5 py-1.5 text-[11px] font-semibold text-slate-600 transition hover:bg-slate-200 sm:px-3 sm:text-xs"
+            >
+              Поддержка
+            </button>
+            <button
+              type="button"
+              onClick={() =>
+                setPresence((value) => (value === "active" ? "dnd" : "active"))
+              }
+              className="shrink-0 transition active:scale-[0.98]"
+              aria-label="Переключить статус"
+            >
+              {presence === "active" ? (
+                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 ring-1 ring-emerald-100 sm:gap-1.5 sm:px-2.5 sm:py-1 sm:text-xs">
+                  <span aria-hidden>🟢</span> Активен
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 rounded-full bg-rose-50 px-2 py-0.5 text-[11px] font-semibold text-rose-700 ring-1 ring-rose-100 sm:gap-1.5 sm:px-2.5 sm:py-1 sm:text-xs">
+                  <span aria-hidden>🔴</span> Не беспокоить
+                </span>
+              )}
+            </button>
+          </div>
         </div>
       </header>
 
@@ -1779,6 +1806,13 @@ export default function CleanerDashboard() {
             </button>
           </form>
         </Modal>
+      ) : null}
+
+      {supportOpen ? (
+        <SupportTicketModal
+          source="cleaner"
+          onClose={() => setSupportOpen(false)}
+        />
       ) : null}
 
       {toast ? (

@@ -1,6 +1,11 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import {
+  getClientSlotsForCleaner,
+  TRAVEL_BUFFER_HOURS,
+  type ClientSlot,
+} from "../lib/schedule";
 
 type Slot = {
   id: string;
@@ -59,28 +64,35 @@ export default function CleanerCalendar({
       </div>
 
       <p className="mt-3 text-sm text-muted">
-        Выберите свободный слот для повторной уборки у этого исполнителя.
+        Выберите свободный слот. Учтён буфер на дорогу {TRAVEL_BUFFER_HOURS} ч —
+        старт уборки не раньше, чем через час после начала окна клинера.
       </p>
 
-      <div className="mt-4 grid gap-2 sm:grid-cols-2">
-        {slots.map((slot) => {
-          const active = selectedId === slot.id;
-          return (
-            <button
-              key={slot.id}
-              type="button"
-              onClick={() => setSelectedId(slot.id)}
-              className={`rounded-2xl px-4 py-3 text-left text-sm font-semibold transition ${
-                active
-                  ? "bg-brand text-white shadow-sm"
-                  : "bg-plaque text-foreground hover:bg-line"
-              }`}
-            >
-              {slot.label}
-            </button>
-          );
-        })}
-      </div>
+      {slots.length === 0 ? (
+        <p className="mt-4 rounded-2xl bg-plaque px-4 py-6 text-center text-sm text-muted">
+          Нет доступных слотов с учётом буфера на дорогу.
+        </p>
+      ) : (
+        <div className="mt-4 grid gap-2 sm:grid-cols-2">
+          {slots.map((slot) => {
+            const active = selectedId === slot.id;
+            return (
+              <button
+                key={slot.id}
+                type="button"
+                onClick={() => setSelectedId(slot.id)}
+                className={`rounded-2xl px-4 py-3 text-left text-sm font-semibold transition ${
+                  active
+                    ? "bg-brand text-white shadow-sm"
+                    : "bg-plaque text-foreground hover:bg-line"
+                }`}
+              >
+                {slot.label}
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       <button
         type="button"
@@ -94,23 +106,7 @@ export default function CleanerCalendar({
   );
 }
 
-export function buildMockSlots(cleanerId: string) {
-  const dayShift = cleanerId.length % 3;
-  const base = new Date();
-  base.setHours(12, 0, 0, 0);
-  base.setDate(base.getDate() + 1 + dayShift);
-
-  const times = ["10:00", "12:00", "14:00", "16:00", "18:00"];
-  return times.map((time, index) => {
-    const day = new Date(base);
-    day.setDate(base.getDate() + Math.floor(index / 3));
-    const dayLabel = new Intl.DateTimeFormat("ru-RU", {
-      day: "numeric",
-      month: "long",
-    }).format(day);
-    return {
-      id: `${cleanerId}-${index}`,
-      label: `${dayLabel}, ${time}`,
-    };
-  });
+/** Builds client bookable slots from cleaner schedule (− travel buffer). */
+export function buildMockSlots(cleanerId: string): ClientSlot[] {
+  return getClientSlotsForCleaner(cleanerId);
 }
