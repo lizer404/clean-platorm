@@ -65,7 +65,7 @@ const BADGES: Badge[] = [
     id: "b1",
     title: "Первый шаг",
     condition: "Выполнено 10 заказов",
-    icon: "🏁",
+    icon: "🏅",
     earned: true,
     progress: "10/10",
   },
@@ -89,7 +89,7 @@ const BADGES: Badge[] = [
     id: "b4",
     title: "Любимчик клиентов",
     condition: "10 повторных вызовов от одних и тех же клиентов",
-    icon: "❤️",
+    icon: "🥇",
     earned: true,
     progress: "10/10",
   },
@@ -97,7 +97,7 @@ const BADGES: Badge[] = [
     id: "b5",
     title: "Герой ремонта",
     condition: "Успешно выполнено 5 уборок после ремонта",
-    icon: "🔧",
+    icon: "🥈",
     earned: false,
     progress: "3/5",
   },
@@ -105,7 +105,7 @@ const BADGES: Badge[] = [
     id: "b6",
     title: "Укротитель пыли",
     condition: "Выполнено 10 генеральных уборок",
-    icon: "🧹",
+    icon: "🥉",
     earned: true,
     progress: "10/10",
   },
@@ -113,7 +113,7 @@ const BADGES: Badge[] = [
     id: "b7",
     title: "Маг окон",
     condition: "Выполнено 20 заказов с доп. услугой мытья окон",
-    icon: "🪟",
+    icon: "✨",
     earned: false,
     progress: "14/20",
   },
@@ -121,7 +121,7 @@ const BADGES: Badge[] = [
     id: "b8",
     title: "Повелитель времени",
     condition: "20 заказов подряд без опозданий",
-    icon: "⏱️",
+    icon: "🎖️",
     earned: false,
     progress: "12/20",
   },
@@ -129,7 +129,7 @@ const BADGES: Badge[] = [
     id: "b9",
     title: "Всегда готов",
     condition: "Индекс активности 100% за месяц",
-    icon: "⚡",
+    icon: "🏅",
     earned: false,
     progress: "95%",
   },
@@ -137,7 +137,7 @@ const BADGES: Badge[] = [
     id: "b10",
     title: "Легенда сервиса",
     condition: "Выполнено 100 заказов на платформе",
-    icon: "👑",
+    icon: "🏆",
     earned: false,
     progress: "67/100",
   },
@@ -1289,10 +1289,10 @@ export default function CleanerDashboard() {
             onClick={() => setScheduleOpen(true)}
             className="rounded-xl bg-white p-3 text-left shadow-[0_8px_24px_rgba(15,23,42,0.04)] ring-1 ring-slate-200/70"
           >
-            <p className="text-lg" aria-hidden>
-              📅
-            </p>
-            <p className="mt-1 text-xs font-bold text-slate-900">Расписание</p>
+            <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-[#1e3a8a]/10 text-[11px] font-bold text-[#1e3a8a]">
+              Cal
+            </span>
+            <p className="mt-2 text-xs font-bold text-slate-900">Расписание</p>
             <p className="mt-0.5 text-[10px] leading-snug text-slate-500">
               {freeSlots.length} свободных интервала
             </p>
@@ -1302,10 +1302,10 @@ export default function CleanerDashboard() {
             onClick={() => setMapOpen(true)}
             className="rounded-xl bg-white p-3 text-left shadow-[0_8px_24px_rgba(15,23,42,0.04)] ring-1 ring-slate-200/70"
           >
-            <p className="text-lg" aria-hidden>
-              🗺️
-            </p>
-            <p className="mt-1 text-xs font-bold text-slate-900">Карта заказов</p>
+            <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-50 text-[11px] font-bold text-emerald-700">
+              Map
+            </span>
+            <p className="mt-2 text-xs font-bold text-slate-900">Карта заказов</p>
             <p className="mt-0.5 text-[10px] leading-snug text-slate-500">
               Сегодня: {TODAY_JOBS.length} адреса
             </p>
