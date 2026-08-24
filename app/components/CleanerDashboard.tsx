@@ -762,6 +762,9 @@ export default function CleanerDashboard() {
       if (mq.matches) {
         setBadgesOpen(true);
         setPriceOpen(true);
+      } else {
+        setBadgesOpen(false);
+        setPriceOpen(false);
       }
     };
     sync();
@@ -1059,10 +1062,7 @@ export default function CleanerDashboard() {
             </span>
           }
           open={badgesOpen}
-          onToggle={() => {
-            if (window.matchMedia("(min-width: 768px)").matches) return;
-            setBadgesOpen((value) => !value);
-          }}
+          onToggle={() => setBadgesOpen((value) => !value)}
         >
           <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3 lg:grid-cols-5">
             {BADGES.map((badge) => (
@@ -1202,10 +1202,7 @@ export default function CleanerDashboard() {
           subtitle="Мой прайс"
           title="Мой прайс-лист"
           open={priceOpen}
-          onToggle={() => {
-            if (window.matchMedia("(min-width: 768px)").matches) return;
-            setPriceOpen((value) => !value);
-          }}
+          onToggle={() => setPriceOpen((value) => !value)}
         >
           <div className="grid grid-cols-1 gap-5 lg:grid-cols-3 lg:gap-6">
             {/* Rates */}
