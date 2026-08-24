@@ -26,6 +26,11 @@ const NAV = [
     icon: "📦",
   },
   {
+    href: "/secure-owner-panel/dashboard/finance",
+    label: "Финансы и Статистика",
+    icon: "💰",
+  },
+  {
     href: "/secure-owner-panel/dashboard/tickets",
     label: "Обращения и Поддержка",
     icon: "🎫",
