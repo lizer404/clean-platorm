@@ -143,12 +143,12 @@ const BADGES: Badge[] = [
   },
 ];
 
-const AVG_TIMES = [
-  { rooms: "1-комн", maint: "1.5–2 ч", general: "3–4 ч" },
-  { rooms: "2-комн", maint: "2–2.5 ч", general: "4–5 ч" },
-  { rooms: "3-комн", maint: "2.5–3.5 ч", general: "5–7 ч" },
-  { rooms: "4-комн", maint: "3.5–4.5 ч", general: "7–9 ч" },
-  { rooms: "5-комн", maint: "4.5–6 ч", general: "9–12 ч" },
+const DEFAULT_ROOM_TIMES = [
+  { rooms: 1, maint: "1.5", general: "3.5" },
+  { rooms: 2, maint: "2", general: "4.5" },
+  { rooms: 3, maint: "3", general: "6" },
+  { rooms: 4, maint: "4", general: "8" },
+  { rooms: 5, maint: "5", general: "10.5" },
 ];
 
 const DEFAULT_EXTRAS: ExtraService[] = [
@@ -303,6 +303,85 @@ function Alert({ children }: { children: ReactNode }) {
     <p className="rounded-lg bg-rose-50 px-2.5 py-2 text-[11px] font-semibold leading-relaxed text-rose-700 ring-1 ring-rose-100 sm:rounded-xl sm:px-3 sm:py-2.5 sm:text-xs">
       {children}
     </p>
+  );
+}
+
+function Chevron({ open }: { open: boolean }) {
+  return (
+    <svg
+      viewBox="0 0 20 20"
+      fill="none"
+      aria-hidden
+      className={`h-5 w-5 shrink-0 text-slate-400 transition-transform duration-300 md:hidden ${
+        open ? "rotate-180" : ""
+      }`}
+    >
+      <path
+        d="M5 7.5L10 12.5L15 7.5"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+/** Collapsed by default on <768px; always expanded from md up. */
+function AccordionPanel({
+  title,
+  subtitle,
+  trailing,
+  open,
+  onToggle,
+  children,
+  className = "",
+}: {
+  title: string;
+  subtitle?: string;
+  trailing?: ReactNode;
+  open: boolean;
+  onToggle: () => void;
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <Panel className={className}>
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={open}
+        className="flex w-full items-start justify-between gap-3 text-left md:pointer-events-none md:cursor-default"
+      >
+        <div className="min-w-0">
+          {subtitle ? (
+            <p className="text-[9px] font-semibold uppercase tracking-[0.14em] text-slate-400 sm:text-[10px]">
+              {subtitle}
+            </p>
+          ) : null}
+          <h2
+            className={`font-[family-name:var(--font-unbounded)] text-sm font-semibold text-slate-900 sm:text-base ${
+              subtitle ? "mt-0.5" : ""
+            }`}
+          >
+            {title}
+          </h2>
+        </div>
+        <div className="flex shrink-0 items-center gap-2">
+          {trailing}
+          <Chevron open={open} />
+        </div>
+      </button>
+      <div
+        className={`grid transition-[grid-template-rows] duration-300 ease-out md:grid-rows-[1fr] ${
+          open ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
+        }`}
+      >
+        <div className="min-h-0 overflow-hidden">
+          <div className="pt-3 sm:pt-4">{children}</div>
+        </div>
+      </div>
+    </Panel>
   );
 }
 
@@ -639,8 +718,15 @@ export default function CleanerDashboard() {
   const [blacklistOpen, setBlacklistOpen] = useState(false);
   const [scheduleOpen, setScheduleOpen] = useState(false);
   const [mapOpen, setMapOpen] = useState(false);
+  const [ibanModalOpen, setIbanModalOpen] = useState(false);
   const [blockOrderId, setBlockOrderId] = useState("");
   const [blockReason, setBlockReason] = useState("");
+
+  const [isIbanLinked, setIsIbanLinked] = useState(false);
+  const [iban, setIban] = useState("");
+  const [ibanDraft, setIbanDraft] = useState("");
+  const [badgesOpen, setBadgesOpen] = useState(false);
+  const [priceOpen, setPriceOpen] = useState(false);
 
   const [rateMode, setRateMode] = useState<RateMode>("mixed");
   const [hourlyRate, setHourlyRate] = useState("25");
@@ -652,6 +738,7 @@ export default function CleanerDashboard() {
   const [customName, setCustomName] = useState("");
   const [customPrice, setCustomPrice] = useState("");
   const [showCustomForm, setShowCustomForm] = useState(false);
+  const [roomTimes, setRoomTimes] = useState(DEFAULT_ROOM_TIMES);
 
   const [calendarMonth, setCalendarMonth] = useState(
     () => new Date(today.getFullYear(), today.getMonth(), 1),
@@ -666,8 +753,21 @@ export default function CleanerDashboard() {
 
   const questGoal = 5;
   const questProgress = Math.min(100, (questDone / questGoal) * 100);
-  const balance = 320;
+  const monthlyEarnings = 320;
   const earnedBadges = BADGES.filter((b) => b.earned).length;
+
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 768px)");
+    const sync = () => {
+      if (mq.matches) {
+        setBadgesOpen(true);
+        setPriceOpen(true);
+      }
+    };
+    sync();
+    mq.addEventListener("change", sync);
+    return () => mq.removeEventListener("change", sync);
+  }, []);
 
   const calendarDays = useMemo(() => {
     const year = calendarMonth.getFullYear();
@@ -801,6 +901,36 @@ export default function CleanerDashboard() {
     showToast("Услуга добавлена");
   }
 
+  function updateRoomTime(
+    rooms: number,
+    field: "maint" | "general",
+    value: string,
+  ) {
+    setRoomTimes((prev) =>
+      prev.map((row) =>
+        row.rooms === rooms ? { ...row, [field]: value } : row,
+      ),
+    );
+  }
+
+  function openIbanModal() {
+    setIbanDraft(iban);
+    setIbanModalOpen(true);
+  }
+
+  function saveIban(event: FormEvent) {
+    event.preventDefault();
+    const next = ibanDraft.trim().toUpperCase().replace(/\s+/g, "");
+    if (next.length < 10) {
+      showToast("Введите корректный IBAN");
+      return;
+    }
+    setIban(next);
+    setIsIbanLinked(true);
+    setIbanModalOpen(false);
+    showToast("IBAN сохранён. Выплаты будут приходить автоматически");
+  }
+
   const scheduleProps = {
     monthLabel,
     calendarMonth,
@@ -919,22 +1049,22 @@ export default function CleanerDashboard() {
           </div>
         </section>
 
-        {/* Trust badges */}
-        <Panel>
-          <div className="flex items-end justify-between gap-2">
-            <div>
-              <p className="text-[9px] font-semibold uppercase tracking-[0.14em] text-slate-400 sm:text-[10px]">
-                Значки доверия
-              </p>
-              <h2 className="mt-0.5 font-[family-name:var(--font-unbounded)] text-sm font-semibold text-slate-900 sm:text-base">
-                Награды специалиста
-              </h2>
-            </div>
-            <p className="shrink-0 text-[11px] font-semibold tabular-nums text-slate-500 sm:text-xs">
+        {/* Trust badges — accordion on mobile */}
+        <AccordionPanel
+          subtitle="Значки доверия"
+          title="Награды специалиста"
+          trailing={
+            <span className="text-[11px] font-semibold tabular-nums text-slate-500 sm:text-xs">
               {earnedBadges}/10
-            </p>
-          </div>
-          <ul className="mt-3 grid grid-cols-2 gap-2 sm:mt-4 sm:grid-cols-3 sm:gap-3 lg:grid-cols-5">
+            </span>
+          }
+          open={badgesOpen}
+          onToggle={() => {
+            if (window.matchMedia("(min-width: 768px)").matches) return;
+            setBadgesOpen((value) => !value);
+          }}
+        >
+          <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3 lg:grid-cols-5">
             {BADGES.map((badge) => (
               <li
                 key={badge.id}
@@ -973,7 +1103,7 @@ export default function CleanerDashboard() {
               </li>
             ))}
           </ul>
-        </Panel>
+        </AccordionPanel>
 
         {/* Quest */}
         <Panel className="bg-gradient-to-br from-[#1e3a8a] to-[#152a66] text-white shadow-[0_12px_28px_rgba(30,58,138,0.28)] ring-0">
@@ -1000,287 +1130,381 @@ export default function CleanerDashboard() {
           </div>
         </Panel>
 
-        {/* Finance + price */}
-        <section className="grid grid-cols-1 gap-3 sm:gap-4 lg:grid-cols-2">
-          <Panel>
-            <p className="text-[9px] font-semibold uppercase tracking-[0.14em] text-slate-400 sm:text-[10px]">
-              Баланс
-            </p>
-            <p className="mt-0.5 font-[family-name:var(--font-unbounded)] text-xl font-semibold tabular-nums text-slate-900 sm:mt-1 sm:text-3xl">
-              {formatByn(balance)} BYN
-            </p>
-            <p className="mt-0.5 text-xs text-slate-500 sm:mt-1 sm:text-sm">
-              К выплате на счет · {city}
-            </p>
-            <button
-              type="button"
-              onClick={() => setPayoutsOpen(true)}
-              className="mt-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-100 sm:mt-4 sm:px-3.5 sm:py-2.5 sm:text-sm"
-            >
-              История выплат
-            </button>
-          </Panel>
+        {/* Earnings / IBAN */}
+        <Panel>
+          <p className="text-[9px] font-semibold uppercase tracking-[0.14em] text-slate-400 sm:text-[10px]">
+            Заработок / месяц
+          </p>
+          <p className="mt-0.5 font-[family-name:var(--font-unbounded)] text-xl font-semibold tabular-nums text-slate-900 sm:mt-1 sm:text-3xl">
+            {formatByn(monthlyEarnings)} BYN
+          </p>
+          <p className="mt-1 text-xs text-slate-500 sm:text-sm">
+            {city} · выплаты автоматически после каждого заказа
+          </p>
 
-          <Panel>
-            <p className="text-[9px] font-semibold uppercase tracking-[0.14em] text-slate-400 sm:text-[10px]">
-              Мой прайс-лист
-            </p>
-            <div className="mt-2 flex flex-wrap gap-1.5 sm:mt-3 sm:gap-2">
+          {isIbanLinked ? (
+            <div className="mt-3 space-y-3 sm:mt-4">
+              <p className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-700 ring-1 ring-emerald-100">
+                <span
+                  className="h-1.5 w-1.5 rounded-full bg-emerald-500"
+                  aria-hidden
+                />
+                Счет привязан
+              </p>
+              <p className="font-mono text-xs tracking-wide text-slate-600 sm:text-sm">
+                {iban.replace(/(.{4})/g, "$1 ").trim()}
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={openIbanModal}
+                  className="rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-100 sm:text-sm"
+                >
+                  Редактировать реквизиты
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPayoutsOpen(true)}
+                  className="rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 sm:text-sm"
+                >
+                  История выплат
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="mt-3 space-y-3 sm:mt-4">
+              <p className="text-sm font-semibold text-slate-800 sm:text-base">
+                Сумма к выплате:{" "}
+                <span className="tabular-nums">
+                  {formatByn(monthlyEarnings)} BYN
+                </span>
+              </p>
               <button
                 type="button"
-                onClick={() => setRateMode("hourly")}
-                className={`rounded-full px-2.5 py-1 text-[11px] font-bold transition sm:px-3 sm:py-1.5 sm:text-xs ${
-                  rateMode === "hourly"
-                    ? "bg-[#1e3a8a] text-white"
-                    : "bg-slate-100 text-slate-600"
-                }`}
+                onClick={openIbanModal}
+                className="flex min-h-12 w-full items-center justify-center rounded-xl bg-rose-600 px-4 py-3.5 text-sm font-bold text-white shadow-[0_8px_20px_rgba(225,29,72,0.28)] transition hover:bg-rose-700 active:scale-[0.99] sm:min-h-14 sm:text-base"
               >
-                Почасовая
+                Привязать IBAN
               </button>
               <button
                 type="button"
-                onClick={() => setRateMode("mixed")}
-                className={`rounded-full px-2.5 py-1 text-[11px] font-bold transition sm:px-3 sm:py-1.5 sm:text-xs ${
-                  rateMode === "mixed"
-                    ? "bg-[#1e3a8a] text-white"
-                    : "bg-slate-100 text-slate-600"
-                }`}
+                onClick={() => setPayoutsOpen(true)}
+                className="text-xs font-semibold text-slate-500 underline-offset-2 hover:text-slate-800 hover:underline sm:text-sm"
               >
-                Смешанная
+                История выплат
               </button>
             </div>
+          )}
+        </Panel>
 
-            <div className="mt-3 space-y-2 sm:mt-4 sm:space-y-2.5">
-              <label className="block">
-                <span className="text-[11px] font-medium text-slate-500 sm:text-xs">
-                  Сумма в час, BYN <span className="text-rose-600">*</span>
-                </span>
-                <input
-                  type="number"
-                  min={1}
-                  required
-                  value={hourlyRate}
-                  onChange={(event) => setHourlyRate(event.target.value)}
-                  className="mt-1 w-full rounded-lg bg-slate-50 px-2.5 py-2 text-sm font-semibold outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-[#1e3a8a]/40 sm:rounded-xl sm:px-3 sm:py-2.5"
-                />
-              </label>
+        {/* Unified price list — accordion on mobile */}
+        <AccordionPanel
+          subtitle="Мой прайс"
+          title="Мой прайс-лист"
+          open={priceOpen}
+          onToggle={() => {
+            if (window.matchMedia("(min-width: 768px)").matches) return;
+            setPriceOpen((value) => !value);
+          }}
+        >
+          <div className="grid grid-cols-1 gap-5 lg:grid-cols-3 lg:gap-6">
+            {/* Rates */}
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400">
+                Выставление прайса
+              </p>
+              <div className="mt-2 flex flex-wrap gap-1.5 sm:gap-2">
+                <button
+                  type="button"
+                  onClick={() => setRateMode("hourly")}
+                  className={`rounded-full px-2.5 py-1 text-[11px] font-bold transition sm:px-3 sm:py-1.5 sm:text-xs ${
+                    rateMode === "hourly"
+                      ? "bg-[#1e3a8a] text-white"
+                      : "bg-slate-100 text-slate-600"
+                  }`}
+                >
+                  Почасовая
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setRateMode("mixed")}
+                  className={`rounded-full px-2.5 py-1 text-[11px] font-bold transition sm:px-3 sm:py-1.5 sm:text-xs ${
+                    rateMode === "mixed"
+                      ? "bg-[#1e3a8a] text-white"
+                      : "bg-slate-100 text-slate-600"
+                  }`}
+                >
+                  Смешанная
+                </button>
+              </div>
 
-              {rateMode === "mixed" ? (
-                <>
-                  <label className="flex items-center justify-between gap-3">
-                    <span className="min-w-0 flex-1 text-xs text-slate-600 sm:text-sm">
-                      Поддерживающая
-                    </span>
-                    <input
-                      type="number"
-                      min={1}
-                      value={priceMaintenance}
-                      onChange={(event) =>
-                        setPriceMaintenance(event.target.value)
-                      }
-                      className="w-20 rounded-lg bg-slate-50 px-2 py-1.5 text-right text-sm font-semibold outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-[#1e3a8a]/40 sm:w-24 sm:rounded-xl sm:px-2.5 sm:py-2"
-                    />
-                  </label>
-                  <label className="flex items-center justify-between gap-3">
-                    <span className="min-w-0 flex-1 text-xs text-slate-600 sm:text-sm">
-                      Генеральная
-                    </span>
-                    <input
-                      type="number"
-                      min={1}
-                      value={priceGeneral}
-                      onChange={(event) => setPriceGeneral(event.target.value)}
-                      className="w-20 rounded-lg bg-slate-50 px-2 py-1.5 text-right text-sm font-semibold outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-[#1e3a8a]/40 sm:w-24 sm:rounded-xl sm:px-2.5 sm:py-2"
-                    />
-                  </label>
+              <div className="mt-3 space-y-2 sm:space-y-2.5">
+                <label className="block">
+                  <span className="text-[11px] font-medium text-slate-500 sm:text-xs">
+                    Сумма в час, BYN <span className="text-rose-600">*</span>
+                  </span>
+                  <input
+                    type="number"
+                    min={1}
+                    required
+                    value={hourlyRate}
+                    onChange={(event) => setHourlyRate(event.target.value)}
+                    className="mt-1 w-full rounded-lg bg-slate-50 px-2.5 py-2 text-sm font-semibold outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-[#1e3a8a]/40 sm:rounded-xl sm:px-3 sm:py-2.5"
+                  />
+                </label>
 
-                  <div className="rounded-lg bg-slate-50 px-2.5 py-2.5 ring-1 ring-slate-200/80 sm:rounded-xl sm:px-3 sm:py-3">
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <span className="text-xs font-semibold text-slate-700 sm:text-sm">
-                        После ремонта
-                      </span>
-                      <div className="inline-flex rounded-full bg-white p-0.5 ring-1 ring-slate-200">
-                        <button
-                          type="button"
-                          onClick={() => setAfterRepairUnit("hour")}
-                          className={`rounded-full px-2.5 py-1 text-[10px] font-bold transition sm:text-[11px] ${
-                            afterRepairUnit === "hour"
-                              ? "bg-[#1e3a8a] text-white"
-                              : "text-slate-500"
-                          }`}
-                        >
-                          За час
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setAfterRepairUnit("sqm")}
-                          className={`rounded-full px-2.5 py-1 text-[10px] font-bold transition sm:text-[11px] ${
-                            afterRepairUnit === "sqm"
-                              ? "bg-[#1e3a8a] text-white"
-                              : "text-slate-500"
-                          }`}
-                        >
-                          За м²
-                        </button>
-                      </div>
-                    </div>
-                    <label className="mt-2 flex items-center justify-between gap-3">
-                      <span className="text-[11px] text-slate-500 sm:text-xs">
-                        {afterRepairUnit === "hour"
-                          ? "Ставка, BYN / час"
-                          : "Ставка, BYN / м²"}
+                {rateMode === "mixed" ? (
+                  <>
+                    <label className="flex items-center justify-between gap-3">
+                      <span className="min-w-0 flex-1 text-xs text-slate-600 sm:text-sm">
+                        Поддерживающая
                       </span>
                       <input
                         type="number"
                         min={1}
-                        value={priceAfterRepair}
+                        value={priceMaintenance}
                         onChange={(event) =>
-                          setPriceAfterRepair(event.target.value)
+                          setPriceMaintenance(event.target.value)
                         }
-                        className="w-20 rounded-lg bg-white px-2 py-1.5 text-right text-sm font-semibold outline-none ring-1 ring-slate-200 focus:ring-[#1e3a8a]/40 sm:w-24 sm:rounded-xl sm:px-2.5 sm:py-2"
+                        className="w-20 rounded-lg bg-slate-50 px-2 py-1.5 text-right text-sm font-semibold outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-[#1e3a8a]/40 sm:w-24 sm:rounded-xl sm:px-2.5 sm:py-2"
                       />
                     </label>
-                  </div>
-                </>
-              ) : null}
+                    <label className="flex items-center justify-between gap-3">
+                      <span className="min-w-0 flex-1 text-xs text-slate-600 sm:text-sm">
+                        Генеральная
+                      </span>
+                      <input
+                        type="number"
+                        min={1}
+                        value={priceGeneral}
+                        onChange={(event) =>
+                          setPriceGeneral(event.target.value)
+                        }
+                        className="w-20 rounded-lg bg-slate-50 px-2 py-1.5 text-right text-sm font-semibold outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-[#1e3a8a]/40 sm:w-24 sm:rounded-xl sm:px-2.5 sm:py-2"
+                      />
+                    </label>
+
+                    <div className="rounded-lg bg-slate-50 px-2.5 py-2.5 ring-1 ring-slate-200/80 sm:rounded-xl sm:px-3 sm:py-3">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <span className="text-xs font-semibold text-slate-700 sm:text-sm">
+                          После ремонта
+                        </span>
+                        <div className="inline-flex rounded-full bg-white p-0.5 ring-1 ring-slate-200">
+                          <button
+                            type="button"
+                            onClick={() => setAfterRepairUnit("hour")}
+                            className={`rounded-full px-2.5 py-1 text-[10px] font-bold transition sm:text-[11px] ${
+                              afterRepairUnit === "hour"
+                                ? "bg-[#1e3a8a] text-white"
+                                : "text-slate-500"
+                            }`}
+                          >
+                            За час
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setAfterRepairUnit("sqm")}
+                            className={`rounded-full px-2.5 py-1 text-[10px] font-bold transition sm:text-[11px] ${
+                              afterRepairUnit === "sqm"
+                                ? "bg-[#1e3a8a] text-white"
+                                : "text-slate-500"
+                            }`}
+                          >
+                            За м²
+                          </button>
+                        </div>
+                      </div>
+                      <label className="mt-2 flex items-center justify-between gap-3">
+                        <span className="text-[11px] text-slate-500 sm:text-xs">
+                          {afterRepairUnit === "hour"
+                            ? "Ставка, BYN / час"
+                            : "Ставка, BYN / м²"}
+                        </span>
+                        <input
+                          type="number"
+                          min={1}
+                          value={priceAfterRepair}
+                          onChange={(event) =>
+                            setPriceAfterRepair(event.target.value)
+                          }
+                          className="w-20 rounded-lg bg-white px-2 py-1.5 text-right text-sm font-semibold outline-none ring-1 ring-slate-200 focus:ring-[#1e3a8a]/40 sm:w-24 sm:rounded-xl sm:px-2.5 sm:py-2"
+                        />
+                      </label>
+                    </div>
+                  </>
+                ) : null}
+              </div>
+
+              <div className="mt-3">
+                <Alert>
+                  Внимание: указывайте стоимость с учетом того, что платформа
+                  удержит комиссию 20%
+                </Alert>
+              </div>
             </div>
 
-            <div className="mt-3 sm:mt-4">
-              <Alert>
-                Внимание: указывайте стоимость с учетом того, что платформа
-                удержит комиссию 20%
-              </Alert>
-            </div>
-          </Panel>
-        </section>
-
-        {/* Extra services + avg times */}
-        <section className="grid grid-cols-1 gap-3 sm:gap-4 lg:grid-cols-2">
-          <Panel>
-            <p className="font-[family-name:var(--font-unbounded)] text-sm font-semibold text-slate-900 sm:text-base">
-              Дополнительные услуги
-            </p>
-            <p className="mt-0.5 text-[11px] text-slate-500 sm:text-xs">
-              Отметьте услуги, которые вы оказываете
-            </p>
-            <ul className="mt-3 space-y-2 sm:mt-3.5">
-              {extras.map((service) => (
-                <li
-                  key={service.id}
-                  className="flex items-center gap-2 rounded-lg bg-slate-50 px-2 py-2 sm:gap-3 sm:px-2.5 sm:py-2.5"
-                >
-                  <label className="flex min-w-0 flex-1 items-center gap-2">
+            {/* Extras */}
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400">
+                Доп. услуги
+              </p>
+              <p className="mt-1 text-[11px] text-slate-500 sm:text-xs">
+                Отметьте услуги, которые вы оказываете
+              </p>
+              <ul className="mt-2.5 space-y-2">
+                {extras.map((service) => (
+                  <li
+                    key={service.id}
+                    className="flex items-center gap-2 rounded-lg bg-slate-50 px-2 py-2 sm:gap-3 sm:px-2.5 sm:py-2.5"
+                  >
+                    <label className="flex min-w-0 flex-1 items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={service.enabled}
+                        onChange={() => toggleExtra(service.id)}
+                        className="h-4 w-4 accent-[#1e3a8a]"
+                      />
+                      <span
+                        className={`truncate text-xs sm:text-sm ${
+                          service.enabled
+                            ? "font-medium text-slate-800"
+                            : "text-slate-500"
+                        }`}
+                      >
+                        {service.label}
+                      </span>
+                    </label>
                     <input
-                      type="checkbox"
-                      checked={service.enabled}
-                      onChange={() => toggleExtra(service.id)}
-                      className="h-4 w-4 accent-[#1e3a8a]"
+                      type="number"
+                      min={1}
+                      disabled={!service.enabled}
+                      value={service.price}
+                      onChange={(event) =>
+                        updateExtraPrice(service.id, event.target.value)
+                      }
+                      className="w-16 rounded-lg bg-white px-1.5 py-1 text-right text-xs font-semibold outline-none ring-1 ring-slate-200 disabled:opacity-40 sm:w-20 sm:px-2 sm:text-sm"
+                      aria-label={`Стоимость: ${service.label}`}
                     />
-                    <span
-                      className={`truncate text-xs sm:text-sm ${
-                        service.enabled
-                          ? "font-medium text-slate-800"
-                          : "text-slate-500"
-                      }`}
-                    >
-                      {service.label}
-                    </span>
-                  </label>
+                  </li>
+                ))}
+              </ul>
+
+              {showCustomForm ? (
+                <div className="mt-3 space-y-2 rounded-xl bg-slate-50 p-2.5 ring-1 ring-slate-200 sm:p-3">
+                  <input
+                    value={customName}
+                    onChange={(event) => setCustomName(event.target.value)}
+                    placeholder="Название услуги"
+                    className="w-full rounded-lg bg-white px-2.5 py-2 text-sm outline-none ring-1 ring-slate-200"
+                  />
                   <input
                     type="number"
                     min={1}
-                    disabled={!service.enabled}
-                    value={service.price}
-                    onChange={(event) =>
-                      updateExtraPrice(service.id, event.target.value)
-                    }
-                    className="w-16 rounded-lg bg-white px-1.5 py-1 text-right text-xs font-semibold outline-none ring-1 ring-slate-200 disabled:opacity-40 sm:w-20 sm:px-2 sm:text-sm"
-                    aria-label={`Стоимость: ${service.label}`}
+                    value={customPrice}
+                    onChange={(event) => setCustomPrice(event.target.value)}
+                    placeholder="Стоимость, BYN"
+                    className="w-full rounded-lg bg-white px-2.5 py-2 text-sm outline-none ring-1 ring-slate-200"
                   />
-                </li>
-              ))}
-            </ul>
-
-            {showCustomForm ? (
-              <div className="mt-3 space-y-2 rounded-xl bg-slate-50 p-2.5 ring-1 ring-slate-200 sm:mt-4 sm:p-3">
-                <input
-                  value={customName}
-                  onChange={(event) => setCustomName(event.target.value)}
-                  placeholder="Название услуги"
-                  className="w-full rounded-lg bg-white px-2.5 py-2 text-sm outline-none ring-1 ring-slate-200"
-                />
-                <input
-                  type="number"
-                  min={1}
-                  value={customPrice}
-                  onChange={(event) => setCustomPrice(event.target.value)}
-                  placeholder="Стоимость, BYN"
-                  className="w-full rounded-lg bg-white px-2.5 py-2 text-sm outline-none ring-1 ring-slate-200"
-                />
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowCustomForm(false);
-                      setCustomName("");
-                      setCustomPrice("");
-                    }}
-                    className="rounded-lg bg-slate-200 px-2 py-2 text-xs font-bold text-slate-700"
-                  >
-                    Отмена
-                  </button>
-                  <button
-                    type="button"
-                    onClick={addCustomService}
-                    className="rounded-lg bg-[#1e3a8a] px-2 py-2 text-xs font-bold text-white"
-                  >
-                    Сохранить
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <button
-                type="button"
-                onClick={() => setShowCustomForm(true)}
-                className="mt-3 w-full rounded-xl border border-dashed border-slate-300 bg-slate-50/80 px-3 py-2.5 text-xs font-bold text-slate-700 transition hover:bg-slate-100 sm:mt-4 sm:text-sm"
-              >
-                + Добавить свою услугу
-              </button>
-            )}
-          </Panel>
-
-          <Panel>
-            <p className="font-[family-name:var(--font-unbounded)] text-sm font-semibold text-slate-900 sm:text-base">
-              Среднее время уборок
-            </p>
-            <p className="mt-0.5 text-[11px] text-slate-500 sm:text-xs">
-              Подсказка для расчёта смены
-            </p>
-            <div className="mt-3 overflow-x-auto sm:mt-4">
-              <table className="w-full min-w-[260px] border-collapse text-left text-[11px] sm:text-xs">
-                <thead>
-                  <tr className="border-b border-slate-200 text-slate-400">
-                    <th className="py-1.5 pr-2 font-semibold">Объект</th>
-                    <th className="py-1.5 pr-2 font-semibold">Поддерж.</th>
-                    <th className="py-1.5 font-semibold">Генеральн.</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {AVG_TIMES.map((row) => (
-                    <tr
-                      key={row.rooms}
-                      className="border-b border-slate-100 text-slate-700"
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowCustomForm(false);
+                        setCustomName("");
+                        setCustomPrice("");
+                      }}
+                      className="rounded-lg bg-slate-200 px-2 py-2 text-xs font-bold text-slate-700"
                     >
-                      <td className="py-1.5 pr-2 font-semibold">{row.rooms}</td>
-                      <td className="py-1.5 pr-2 tabular-nums">{row.maint}</td>
-                      <td className="py-1.5 tabular-nums">{row.general}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                      Отмена
+                    </button>
+                    <button
+                      type="button"
+                      onClick={addCustomService}
+                      className="rounded-lg bg-[#1e3a8a] px-2 py-2 text-xs font-bold text-white"
+                    >
+                      Сохранить
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setShowCustomForm(true)}
+                  className="mt-3 w-full rounded-xl border border-dashed border-slate-300 bg-slate-50/80 px-3 py-2.5 text-xs font-bold text-slate-700 transition hover:bg-slate-100 sm:text-sm"
+                >
+                  + Добавить свою услугу
+                </button>
+              )}
             </div>
-          </Panel>
-        </section>
+
+            {/* Editable avg times */}
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400">
+                Среднее время уборки
+              </p>
+              <p className="mt-1 text-[11px] text-slate-500 sm:text-xs">
+                Укажите своё время в часах для каждого типа объекта
+              </p>
+              <div className="mt-2.5 overflow-x-auto">
+                <table className="w-full min-w-[240px] border-collapse text-left text-[11px] sm:text-xs">
+                  <thead>
+                    <tr className="border-b border-slate-200 text-slate-400">
+                      <th className="py-1.5 pr-2 font-semibold">Объект</th>
+                      <th className="py-1.5 pr-2 font-semibold">Поддерж., ч</th>
+                      <th className="py-1.5 font-semibold">Ген., ч</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {roomTimes.map((row) => (
+                      <tr
+                        key={row.rooms}
+                        className="border-b border-slate-100 text-slate-700"
+                      >
+                        <td className="py-2 pr-2 font-semibold">
+                          {row.rooms}-комн
+                        </td>
+                        <td className="py-2 pr-2">
+                          <input
+                            type="number"
+                            min={0.5}
+                            step={0.5}
+                            value={row.maint}
+                            onChange={(event) =>
+                              updateRoomTime(
+                                row.rooms,
+                                "maint",
+                                event.target.value,
+                              )
+                            }
+                            className="w-16 rounded-lg bg-slate-50 px-1.5 py-1 text-right text-xs font-semibold outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-[#1e3a8a]/40 sm:w-20 sm:text-sm"
+                            aria-label={`Поддерживающая, ${row.rooms} комн`}
+                          />
+                        </td>
+                        <td className="py-2">
+                          <input
+                            type="number"
+                            min={0.5}
+                            step={0.5}
+                            value={row.general}
+                            onChange={(event) =>
+                              updateRoomTime(
+                                row.rooms,
+                                "general",
+                                event.target.value,
+                              )
+                            }
+                            className="w-16 rounded-lg bg-slate-50 px-1.5 py-1 text-right text-xs font-semibold outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-[#1e3a8a]/40 sm:w-20 sm:text-sm"
+                            aria-label={`Генеральная, ${row.rooms} комн`}
+                          />
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </AccordionPanel>
 
         {/* Mobile previews for schedule/map */}
         <section className="grid grid-cols-2 gap-2 lg:hidden">
@@ -1523,6 +1747,38 @@ export default function CleanerDashboard() {
               className="flex min-h-11 w-full items-center justify-center rounded-xl bg-rose-600 text-sm font-bold text-white hover:bg-rose-700"
             >
               Отправить заявку
+            </button>
+          </form>
+        </Modal>
+      ) : null}
+
+      {ibanModalOpen ? (
+        <Modal
+          title={isIbanLinked ? "Редактировать IBAN" : "Привязать IBAN"}
+          onClose={() => setIbanModalOpen(false)}
+        >
+          <form onSubmit={saveIban} className="space-y-3.5">
+            <p className="text-xs leading-relaxed text-slate-500">
+              Выплаты начисляются автоматически после каждого заказа. Укажите
+              расчётный счёт в формате IBAN.
+            </p>
+            <label className="block space-y-1.5">
+              <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                IBAN
+              </span>
+              <input
+                value={ibanDraft}
+                onChange={(event) => setIbanDraft(event.target.value)}
+                placeholder="BY00 ALFA 0000 0000 0000 0000 0000"
+                autoComplete="off"
+                className="w-full rounded-xl bg-slate-50 px-3 py-3 font-mono text-sm uppercase outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-[#1e3a8a]/40"
+              />
+            </label>
+            <button
+              type="submit"
+              className="flex min-h-11 w-full items-center justify-center rounded-xl bg-[#1e3a8a] text-sm font-bold text-white hover:bg-[#152a66]"
+            >
+              Сохранить счет
             </button>
           </form>
         </Modal>
