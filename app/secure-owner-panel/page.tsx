@@ -35,8 +35,8 @@ export default function AdminLoginPage() {
   }
 
   return (
-    <div className="flex min-h-full items-center justify-center bg-[#0f172a] px-4 py-12">
-      <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl sm:p-8">
+    <div className="flex min-h-full items-center justify-center bg-[#0f172a] px-3 py-8 sm:px-4 sm:py-12">
+      <div className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-2xl sm:p-8">
         <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-400">
           Secure Owner Panel
         </p>
